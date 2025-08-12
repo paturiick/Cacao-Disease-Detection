@@ -9,7 +9,7 @@ import NavLink from '~/components/atoms/NavLink.vue'
 
 const links = [
     { href: '/', label: '' },
-    { href: '/log-in', label: 'LOGIN' },
-    { href: '/sign-up', label: 'SIGNUP' }
+    { href: '/log-in', label: 'Login' },
+    { href: '/sign-up', label: 'Sign-up' }
 ]
 </script>

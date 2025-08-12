@@ -1,5 +1,5 @@
 <template>
-    <header class="flex items-center justify-between py-4 px-8 bg-primary shadow">
+    <header class="flex items-center justify-between py-4 px-8 bg-primary shadow drop-shadow-lg">
         <Logo />
         <NavMenu />
     </header>
