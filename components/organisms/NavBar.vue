@@ -4,8 +4,8 @@ import NavMenu from '~/components/molecules/NavMenu.vue'
 </script>
 
 <template>
-    <header class="flex items-center justify-between py-4 px-8 bg-primary shadow drop-shadow-lg h-15">
-        <Logo />
+    <header class="flex items-center justify-between py-4 px-8 bg-primary shadow drop-shadow-lg h-20">
+        <Logo> Cacao Disease Detection </Logo>
         <NavMenu />
     </header>
 </template>
