@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import Button from '~/components/atoms/Button.vue';
+
+// Define the navigation action
+const handleGetStarted = () => {
+    navigateTo('/login');
+}
 </script>
 
 <template>
@@ -11,7 +16,8 @@ import Button from '~/components/atoms/Button.vue';
             <p class="text-gray-600 mb-6">
                 Helping you identify and manage cacao diseases with AI precision.
             </p>
-            <Button>
+            
+            <Button @click="handleGetStarted">
                 Get Started
             </Button>
         </div>

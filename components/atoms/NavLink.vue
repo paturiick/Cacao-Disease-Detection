@@ -1,11 +1,15 @@
 <template>
-    <NuxtLink :to="href"
-        class="text-background hover:underline font-poppins font-semibold text-lg 
-        hover:scale-105 transition-all duration-300 ease-in-out transform">
+  <NuxtLink 
+    :to="to" 
+    class="text-white font-poppins font-semibold text-lg hover:text-green-200 transition-colors"
+  >
         {{ label }}
     </NuxtLink>
 </template>
 
 <script setup lang="ts">
-defineProps<{ href: string; label: string }>()
+defineProps<{
+  label: string
+  to: string
+}>()
 </script>
