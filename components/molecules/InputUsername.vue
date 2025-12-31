@@ -6,7 +6,7 @@ defineProps({
 </script>
 
 <template>
-  <div class="w-full group animate-slide-up" style="animation-delay: 100ms;">
+  <div class="w-full group animate-slide-up">
     
     <label class="flex items-center text-gray-600 text-sm font-medium mb-1.5 transition-colors duration-300 group-focus-within:text-[#658D1B]">
        <svg 
@@ -15,34 +15,29 @@ defineProps({
          stroke="currentColor" 
          viewBox="0 0 24 24"
        >
-         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
        </svg>
-       Password
+       Username
     </label>
 
     <input 
       :value="modelValue"
       @input="$emit('update:modelValue', $event.target.value)"
-      type="password" 
+      type="text" 
       :placeholder="placeholder" 
       class="w-full border border-gray-300 rounded-md px-4 py-2.5 text-sm 
              transition-all duration-300 ease-in-out
              focus:outline-none focus:border-[#658D1B] focus:ring-2 focus:ring-[#658D1B]/20 
              placeholder-gray-400 hover:border-gray-400"
     />
-    
-    <div class="flex justify-end mt-1">
-      <NuxtLink to="/forgot-password" class="text-xs text-[#658D1B] hover:underline font-medium transition-opacity hover:opacity-80">
-        Forgot password?
-      </NuxtLink>
-    </div>
   </div>
 </template>
 
 <style scoped>
+/* Custom Slide Up Animation */
 .animate-slide-up {
   animation: slideUp 0.5s ease-out forwards;
-  opacity: 0;
+  opacity: 0; /* Start invisible */
 }
 
 @keyframes slideUp {
