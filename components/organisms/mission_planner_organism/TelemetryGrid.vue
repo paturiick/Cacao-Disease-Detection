@@ -1,5 +1,5 @@
 <script setup>
-import TelemetryItem from '~/components/molecules/TelemetryItem.vue';
+import TelemetryItem from '~/components/molecules/mission_plan_molecules/TelemetryItem.vue';
 </script>
 
 <template>
