@@ -4,6 +4,7 @@ defineProps({
   colorClass: { type: String, required: true }
 });
 
+// IMPORTANT: This line is required for the @click to work
 defineEmits(['click']);
 </script>
 
