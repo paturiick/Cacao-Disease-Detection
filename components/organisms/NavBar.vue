@@ -17,7 +17,6 @@ const props = defineProps({
   }
 });
 
-// Map the string keys to the actual Vue Components (Atoms)
 const iconComponents = {
   'plane': IconPlane,
   'wifi': IconWifi,
@@ -25,7 +24,6 @@ const iconComponents = {
   'doc': IconReport
 };
 
-// Define Page Data
 const pages = {
   'mission-planner': {
     label: 'Mission Planner',
@@ -79,7 +77,7 @@ const logout = () => navigateTo('/login');
         :color-class="currentPage.color"
       >
         <template #icon>
-          <component :is="iconComponents[currentPage.iconKey]" />
+          <component :is="iconComponents[currentPage.iconKey]" class="text-white" />
         </template>
       </ActivePageBanner>
     </div>

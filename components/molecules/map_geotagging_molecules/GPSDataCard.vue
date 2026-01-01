@@ -2,6 +2,13 @@
 import BaseCard from '~/components/atoms/BaseCard.vue';
 import DataField from '~/components/atoms/DataField.vue';
 import IconGPS from '~/components/atoms/IconGPS.vue';
+
+defineProps({
+  data: {
+    type: Object,
+    required: true
+  }
+});
 </script>
 
 <template>
@@ -14,12 +21,12 @@ import IconGPS from '~/components/atoms/IconGPS.vue';
     </div>
 
     <div class="space-y-3">
-      <DataField label="Latitude" value="37.774900°" />
-      <DataField label="Longitude" value="-122.419400°" />
-      <DataField label="Altitude" value="125.4 m" />
-      <DataField label="Accuracy" value="2.1 m" />
-      <DataField label="Speed" value="14.8 m/s" />
-      <DataField label="Heading" value="245°" />
+      <DataField label="Latitude" :value="data.lat.toFixed(6) + '°'" />
+      <DataField label="Longitude" :value="data.lng.toFixed(6) + '°'" />
+      <DataField label="Altitude" :value="data.alt.toFixed(1) + ' m'" />
+      <DataField label="Accuracy" :value="data.accuracy + ' m'" />
+      <DataField label="Speed" :value="data.speed.toFixed(1) + ' m/s'" />
+      <DataField label="Heading" :value="data.heading.toFixed(0) + '°'" />
     </div>
   </BaseCard>
 </template>
