@@ -33,6 +33,11 @@ export default <RouterConfig> {
       name: 'map-geotagging',
       path: '/map-geotagging',
       component: () => import('~/pages/main-pages/map-geotagging.vue')
+    },
+    {
+      name: 'report',
+      path: '/report',
+      component: () => import('~/pages/main-pages/report.vue')
     }
   ],
 }
