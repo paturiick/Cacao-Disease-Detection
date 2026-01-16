@@ -1,8 +1,12 @@
 <script setup>
+import { reactive } from 'vue';
 import Button from '~/components/atoms/Button.vue';
 import Logo from '~/components/atoms/Logo.vue';
-import InputUsername from '~/components/molecules/InputUsername.vue';
+
+// 1. Import the generic input field
+import InputField from '~/components/molecules/InputField.vue';
 import InputPassword from '~/components/molecules/InputPassword.vue';
+import ForgotPassword from '~/components/atoms/ForgotPassword.vue';
 
 const form = reactive({
   username: '',
@@ -31,15 +35,26 @@ const handleLogin = async () => {
 
     <form @submit.prevent="handleLogin" class="space-y-4">
       
-      <InputUsername 
+      <InputField 
         v-model="form.username" 
-        placeholder="Enter username" 
-      />
+        label="Username" 
+        placeholder="Enter username"
+      >
+        <template #icon>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+          </svg>
+        </template>
+      </InputField>
 
-      <InputPassword 
-        v-model="form.password" 
-        placeholder="Enter password" 
-      />
+      <div>
+        <InputPassword 
+          v-model="form.password" 
+          placeholder="Enter password" 
+        />
+        
+        <ForgotPassword />
+      </div>
 
       <div class="pt-2">
         <Button 
