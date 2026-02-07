@@ -1,14 +1,11 @@
 <script setup>
-defineProps({
-  isActive: Boolean
-});
+defineProps({ isActive: Boolean });
 </script>
-
 <template>
-  <div 
-    class="text-xs font-bold px-3 py-1 rounded-full transition-colors select-none"
-    :class="isActive ? 'bg-[#AED581] text-white' : 'bg-gray-100 text-gray-400'"
+  <span 
+    class="text-[10px] px-2 py-1 rounded-full uppercase font-bold tracking-wider transition-colors"
+    :class="isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
   >
     {{ isActive ? 'Mission Active' : 'Mission Inactive' }}
-  </div>
+  </span>
 </template>
