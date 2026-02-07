@@ -39,15 +39,9 @@ const params = reactive({
          placeholder="e.g. 15" 
          v-model="params.speed" 
        />
-       
-       <LabeledInput 
-         label="Number of Waypoints" 
-         type="number" 
-         placeholder="e.g. 5" 
-         v-model="params.waypoints" 
-       />
-       
-       <LabeledInput 
+
+       <LabeledInput
+         class="md: col-span-2" 
          label="Flight Mode" 
          type="text"
          placeholder="e.g. Stabilize" 
