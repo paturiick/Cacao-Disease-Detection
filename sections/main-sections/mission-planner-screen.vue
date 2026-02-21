@@ -25,7 +25,7 @@ const isRunning = ref(false);
 const currentStepIndex = ref(-1);
 
 const flightParams = reactive({
-  altitude: 100,
+  altitude: 10,
   speed: 15,
   mode: 'Stabilize'
 });
@@ -42,7 +42,7 @@ const modalConfig = reactive({
   title: '',
   message: '',
   isWarning: false, 
-  isSuccess: false, // <--- ADDED THIS PROP
+  isSuccess: false,
   cancelText: 'Close'
 });
 
@@ -109,7 +109,7 @@ const handleRunMission = async () => {
   modalConfig.title = "Mission Complete";
   modalConfig.message = "The drone has successfully executed all flight plan commands.";
   modalConfig.isWarning = false; 
-  modalConfig.isSuccess = true; // <--- SET THIS TO TRUE
+  modalConfig.isSuccess = true;
   modalConfig.cancelText = "Close"; 
   
   showCompleteModal.value = true;
