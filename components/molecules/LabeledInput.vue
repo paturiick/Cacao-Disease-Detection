@@ -1,6 +1,9 @@
 <script setup>
 defineProps({
-  modelValue: String,
+  modelValue: {
+    type: [String, Number],   // 👈 allow both
+    required: true
+  },
   label: String,
   type: {
     type: String,
@@ -16,11 +19,12 @@ defineProps({
        <slot name="icon"></slot>
        {{ label }}
     </label>
+
     <input 
       :value="modelValue"
-      @input="$emit('update:modelValue', $event.target.value)"
-      :type="type" 
-      :placeholder="placeholder" 
+      @input="$emit('update:modelValue', type === 'number' ? Number($event.target.value) : $event.target.value)"
+      :type="type"
+      :placeholder="placeholder"
       class="w-full border border-gray-300 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-[#658D1B] focus:ring-1 focus:ring-[#658D1B] transition placeholder-gray-400"
     />
   </div>
