@@ -1,8 +1,8 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import transaction
-from .models import MissionPlan
-from .runner import trigger_emergency_land
+from api.missions.models import MissionPlan
+from api.missions.runner import trigger_emergency_land
 
 @api_view(["POST"])
 def force_land_view(request, plan_id):
@@ -26,3 +26,8 @@ def force_land_view(request, plan_id):
             
     except MissionPlan.DoesNotExist:
         return Response({"error": "Plan not found"}, status=404)
+
+@api_view(["GET"])
+def health(request):
+    """Simple health check endpoint to verify the API is running."""
+    return Response({"status": "healthy", "message": "API is running smoothly."})
