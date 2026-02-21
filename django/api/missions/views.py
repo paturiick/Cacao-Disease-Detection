@@ -3,12 +3,12 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
 
-# Corrected Imports
-from .models import MissionPlan, MissionStep
-from .serializers import MissionPlanSerializer, MissionStepSerializer
-
-# Absolute imports often resolve "could not be resolved" errors better
+# Absolute imports (No leading dots)
+from api.missions.models import MissionPlan, MissionStep
 from api.missions.runner import start_plan, trigger_emergency_land 
+
+# Assuming serializers.py is in the same folder as views.py
+from .serializers import MissionPlanSerializer, MissionStepSerializer
 
 def get_or_create_active_plan():
     plan = MissionPlan.objects.order_by("-id").first()

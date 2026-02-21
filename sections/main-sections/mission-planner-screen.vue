@@ -29,8 +29,8 @@ const isRunning = ref(false);
 const currentStepIndex = ref(-1);
 
 const flightParams = reactive({
-  altitude: 10,
-  speed: 15,
+  altitude: 5,
+  speed: 2,
   mode: 'Stabilize'
 });
 
