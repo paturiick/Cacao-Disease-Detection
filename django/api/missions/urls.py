@@ -2,12 +2,14 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("", views.mission_list_create),                 # /api/missions/
-    path("<int:mission_id>/", views.mission_detail),     # /api/missions/1/
-    path("<int:mission_id>/start/", views.mission_start),# /api/missions/1/start/
+    path("active/", views.active_plan),
 
-    path("runs/", views.run_list),                       # /api/missions/runs/
-    path("runs/<int:run_id>/", views.run_detail),        # /api/missions/runs/1/
-    path("runs/<int:run_id>/abort/", views.run_abort),   # /api/missions/runs/1/abort/
+    path("plans/<int:plan_id>/", views.update_plan),
+    path("plans/<int:plan_id>/steps/", views.add_step),
+    path("steps/<int:step_id>/", views.delete_step),
+    path("plans/<int:plan_id>/steps/clear/", views.clear_steps),
+
+    path("plans/<int:plan_id>/run/", views.run_plan),
+    path("plans/<int:plan_id>/cancel/", views.cancel_plan),
+    path("plans/<int:plan_id>/status/", views.plan_status),
 ]
-

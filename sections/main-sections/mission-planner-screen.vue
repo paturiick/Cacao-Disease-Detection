@@ -1,8 +1,10 @@
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, onMounted, watch, onBeforeUnmount } from 'vue';
+import { missionApi } from "../api/missionApi";
+
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 
-// --- 1. IMPORT ICONS ---
+// --- ICONS ---
 import UpIcon from '~/assets/icons/Up.svg';
 import DownIcon from '~/assets/icons/Down.svg';
 import LeftIcon from '~/assets/icons/Left.svg';
@@ -10,16 +12,18 @@ import RightIcon from '~/assets/icons/Right.svg';
 import ForwardIcon from '~/assets/icons/Forward.svg';
 import BackwardIcon from '~/assets/icons/Backward.svg';
 
-// Import Organisms
+// Organisms
 import FlightParametersCard from '~/components/organisms/mission_planner_organism/FlightParametersCard.vue';
 import MissionCommandsCard from '~/components/organisms/mission_planner_organism/MissionCommandsCard.vue';
 import MissionHistoryCard from '~/components/organisms/mission_planner_organism/MissionHistoryCard.vue';
 import ControlPanel from '~/components/organisms/mission_planner_organism/ControlPanel.vue';
 
-// Import Modal
+// Modal
 import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
 
 // --- STATE ---
+const planId = ref(null);
+
 const missionQueue = ref([]);
 const isRunning = ref(false);
 const currentStepIndex = ref(-1);
@@ -36,16 +40,15 @@ const telemetry = reactive({
   batteryColor: 'bg-red-500'
 });
 
-// --- NEW: Modal State ---
+// Modal
 const showCompleteModal = ref(false);
 const modalConfig = reactive({
   title: '',
   message: '',
-  isWarning: false, 
-  isSuccess: false, // <--- ADDED THIS PROP
+  isWarning: false,
+  isSuccess: false,
   cancelText: 'Close'
 });
-
 
 // --- COMMAND OPTIONS ---
 const commandOptions = [
@@ -60,64 +63,163 @@ const commandOptions = [
   { label: 'Hover',       value: 'hover',   unit: 's', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>` },
 ];
 
-// --- HANDLERS ---
-const handleAddCommand = (cmd) => {
-  const details = commandOptions.find(c => c.value === cmd.type);
-  missionQueue.value.push({
-    id: Date.now(),
-    type: cmd.type,
-    val: cmd.val,
-    label: details.label,
-    icon: details.icon,
-    unit: details.unit
-  });
+// --- helpers ---
+const decorateStep = (stepDto) => {
+  const details = commandOptions.find(c => c.value === stepDto.type);
+  return {
+    id: stepDto.id,         // backend id
+    type: stepDto.type,
+    val: stepDto.val,
+    label: details?.label ?? stepDto.type,
+    icon: details?.icon ?? null,
+    unit: details?.unit ?? 's'
+  };
 };
 
-const handleRemoveCommand = (index) => {
+const applyTelemetry = (gps, battery) => {
+  telemetry.gps = gps ?? 'Weak';
+  telemetry.battery = Number.isFinite(battery) ? battery : 0;
+  telemetry.batteryColor = telemetry.battery >= 50 ? 'bg-[#658D1B]' : 'bg-red-500';
+};
+
+// --- Load active plan on mount ---
+onMounted(async () => {
+  try{
+     const plan = await missionApi.getActive();
+  planId.value = plan.id;
+
+  // hydrate params
+  flightParams.altitude = plan.altitude;
+  flightParams.speed = plan.speed;
+  flightParams.mode = plan.mode;
+
+  // hydrate steps
+  missionQueue.value = (plan.steps || [])
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map(decorateStep);
+
+  // initial telemetry snapshot (if present)
+  applyTelemetry(plan.gps, plan.battery);
+
+  // reflect backend status if it was left running/queued
+  if (plan.status === 'running' || plan.status === 'queued') {
+    isRunning.value = true;
+    startStatusPoll();
+  }
+  } catch(e) {
+    console.error("Failed to load active plan:", e);
+
+  }
+});
+
+// --- autosave flight params (debounced) ---
+let fpTimer = null;
+watch(
+  () => ({ ...flightParams }),
+  () => {
+    if (!planId.value) return;
+    clearTimeout(fpTimer);
+    fpTimer = setTimeout(() => {
+      missionApi.patchPlan(planId.value, {
+        altitude: flightParams.altitude,
+        speed: flightParams.speed,
+        mode: flightParams.mode,
+      });
+    }, 350);
+  },
+  { deep: true }
+);
+
+// --- HANDLERS (now backend-driven) ---
+const handleAddCommand = async (cmd) => {
+  if (!planId.value) return;
+
+  const created = await missionApi.addStep(planId.value, {
+    type: cmd.type,
+    val: cmd.val
+  });
+
+  missionQueue.value.push(decorateStep(created));
+};
+
+const handleRemoveCommand = async (index) => {
+  const step = missionQueue.value[index];
+  if (!step) return;
+
+  await missionApi.deleteStep(step.id);
   missionQueue.value.splice(index, 1);
 };
 
-const handleClear = () => {
+const handleClear = async () => {
+  if (!planId.value) return;
+
+  await missionApi.clearSteps(planId.value);
   missionQueue.value = [];
   currentStepIndex.value = -1;
 };
 
+// --- RUN + POLL STATUS ---
+let statusPoll = null;
+
+const stopStatusPoll = () => {
+  if (statusPoll) clearInterval(statusPoll);
+  statusPoll = null;
+};
+
+const startStatusPoll = () => {
+  stopStatusPoll();
+  statusPoll = setInterval(async () => {
+    if (!planId.value) return;
+
+    const s = await missionApi.status(planId.value);
+
+    applyTelemetry(s.gps, s.battery);
+
+    // show active index while running
+    if (s.status === 'running') currentStepIndex.value = s.active_index ?? -1;
+    else currentStepIndex.value = -1;
+
+    console.log("STATUS POLL:", s);
+
+
+    if (['completed', 'failed', 'cancelled'].includes(s.status)) {
+      stopStatusPoll();
+      isRunning.value = false;
+      currentStepIndex.value = -1;
+
+      modalConfig.title = s.status === 'completed' ? 'Mission Complete' : 'Mission Ended';
+      modalConfig.message =
+        s.status === 'completed'
+          ? 'The drone has successfully executed all flight plan commands.'
+          : (s.message || `Mission status: ${s.status}`);
+
+      modalConfig.isWarning = s.status !== 'completed';
+      modalConfig.isSuccess = s.status === 'completed';
+      modalConfig.cancelText = 'Close';
+
+      showCompleteModal.value = true;
+    }
+  }, 1000);
+};
+
 const handleRunMission = async () => {
+  if (!planId.value) return;
+
   isRunning.value = true;
   currentStepIndex.value = -1;
 
-  // Simulate Connection
-  telemetry.gps = 'Strong';
-  telemetry.battery = 84;
-  telemetry.batteryColor = 'bg-[#658D1B]';
-
-  // 1. Initial Config
-  currentStepIndex.value = 0;
-  await new Promise(r => setTimeout(r, 2000));
-
-  // 2. Execute Steps
-  for (let i = 0; i < missionQueue.value.length; i++) {
-    currentStepIndex.value = i + 1;
-    const stepDuration = missionQueue.value[i].val * 1000;
-    await new Promise(r => setTimeout(r, stepDuration));
-  }
-
-  isRunning.value = false;
-  currentStepIndex.value = -1;
-  
-  // --- UPDATED: Trigger Success Modal ---
-  modalConfig.title = "Mission Complete";
-  modalConfig.message = "The drone has successfully executed all flight plan commands.";
-  modalConfig.isWarning = false; 
-  modalConfig.isSuccess = true; // <--- SET THIS TO TRUE
-  modalConfig.cancelText = "Close"; 
-  
-  showCompleteModal.value = true;
+  await missionApi.run(planId.value);
+  startStatusPoll();
 };
+
+onBeforeUnmount(() => {
+  stopStatusPoll();
+  clearTimeout(fpTimer);
+});
 </script>
 
 <template>
-  <div 
+  <div
     class="flex flex-col h-screen overflow-hidden font-inter bg-cover bg-center relative"
     style="background-image: url('https://images.unsplash.com/photo-1542319084-2a6c38210350?q=80&w=2574&auto=format&fit=crop');"
   >
@@ -136,37 +238,36 @@ const handleRunMission = async () => {
         </div>
 
         <div class="w-full xl:w-2/5 flex flex-col h-full">
-           <MissionHistoryCard 
-             :queue="missionQueue" 
-             :isRunning="isRunning" 
-             :activeIndex="currentStepIndex"
-             :flightParams="flightParams"
-             @remove="handleRemoveCommand"
-             @clear="handleClear"
-           />
+          <MissionHistoryCard
+            :queue="missionQueue"
+            :isRunning="isRunning"
+            :activeIndex="currentStepIndex"
+            :flightParams="flightParams"
+            @remove="handleRemoveCommand"
+            @clear="handleClear"
+          />
         </div>
 
         <div class="w-full xl:w-1/3 flex flex-col gap-6">
-           <ControlPanel 
-             :hasMission="missionQueue.length > 0"
-             :isRunning="isRunning"
-             :telemetry="telemetry"
-             @run="handleRunMission"
-           />
+          <ControlPanel
+            :hasMission="missionQueue.length > 0"
+            :isRunning="isRunning"
+            :telemetry="telemetry"
+            @run="handleRunMission"
+          />
         </div>
 
       </div>
     </div>
 
-    <ConfirmationModal 
+    <ConfirmationModal
       :isOpen="showCompleteModal"
       :title="modalConfig.title"
       :message="modalConfig.message"
       :isWarning="modalConfig.isWarning"
-      :isSuccess="modalConfig.isSuccess" 
+      :isSuccess="modalConfig.isSuccess"
       :cancelText="modalConfig.cancelText"
       @cancel="showCompleteModal = false"
     />
-    
   </div>
 </template>
