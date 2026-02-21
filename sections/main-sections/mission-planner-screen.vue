@@ -45,20 +45,14 @@ const showCompleteModal = ref(false);
 const modalConfig = reactive({
   title: '',
   message: '',
-<<<<<<< HEAD
-  isWarning: false, 
-=======
   isWarning: false,
->>>>>>> e18ad40e659d3dc4cd49db184b1f74d0dd15f6db
   isSuccess: false,
   cancelText: 'Close'
 });
 
 // --- COMMAND OPTIONS ---
 const commandOptions = [
-  { label: 'Fly Up',      value: 'up',      unit: 's', icon: UpIcon },
-  { label: 'Fly Down',    value: 'down',    unit: 's', icon: DownIcon },
-  { label: 'Fly Left',    value: 'left',    unit: 's', icon: LeftIcon },
+  { label: 'Fly Left',    value: 'left',    unit: 's', icon: LeftIcon },  
   { label: 'Fly Right',   value: 'right',   unit: 's', icon: RightIcon },
   { label: 'Fly Forward', value: 'forward', unit: 's', icon: ForwardIcon },
   { label: 'Fly Back',    value: 'back',    unit: 's', icon: BackwardIcon },
@@ -212,38 +206,8 @@ const handleRunMission = async () => {
   isRunning.value = true;
   currentStepIndex.value = -1;
 
-<<<<<<< HEAD
-  // Simulate Connection
-  telemetry.gps = 'Strong';
-  telemetry.battery = 84;
-  telemetry.batteryColor = 'bg-[#658D1B]';
-
-  // 1. Initial Config
-  currentStepIndex.value = 0;
-  await new Promise(r => setTimeout(r, 2000));
-
-  // 2. Execute Steps
-  for (let i = 0; i < missionQueue.value.length; i++) {
-    currentStepIndex.value = i + 1;
-    const stepDuration = missionQueue.value[i].val * 1000;
-    await new Promise(r => setTimeout(r, stepDuration));
-  }
-
-  isRunning.value = false;
-  currentStepIndex.value = -1;
-  
-  // --- UPDATED: Trigger Success Modal ---
-  modalConfig.title = "Mission Complete";
-  modalConfig.message = "The drone has successfully executed all flight plan commands.";
-  modalConfig.isWarning = false; 
-  modalConfig.isSuccess = true;
-  modalConfig.cancelText = "Close"; 
-  
-  showCompleteModal.value = true;
-=======
   await missionApi.run(planId.value);
   startStatusPoll();
->>>>>>> e18ad40e659d3dc4cd49db184b1f74d0dd15f6db
 };
 
 onBeforeUnmount(() => {
