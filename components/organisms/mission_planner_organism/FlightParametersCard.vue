@@ -3,7 +3,7 @@ import BaseCard from '~/components/atoms/BaseCard.vue';
 import SectionHeader from '~/components/atoms/SectionHeader.vue';
 import LabeledInput from '~/components/molecules/LabeledInput.vue';
 
-defineProps(['modelValue']); // expects flightParams object
+defineProps(['modelValue']);
 defineEmits(['update:modelValue']);
 </script>
 

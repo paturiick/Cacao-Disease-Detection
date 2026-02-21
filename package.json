@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "express": "^5.1.0",
+    "jmuxer": "^2.1.0",
+    "leaflet": "^1.9.4",
     "nuxt": "^4.0.3",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1"

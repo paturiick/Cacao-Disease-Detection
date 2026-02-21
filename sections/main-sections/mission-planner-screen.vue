@@ -29,7 +29,7 @@ const isRunning = ref(false);
 const currentStepIndex = ref(-1);
 
 const flightParams = reactive({
-  altitude: 100,
+  altitude: 10,
   speed: 15,
   mode: 'Stabilize'
 });
@@ -52,9 +52,7 @@ const modalConfig = reactive({
 
 // --- COMMAND OPTIONS ---
 const commandOptions = [
-  { label: 'Fly Up',      value: 'up',      unit: 's', icon: UpIcon },
-  { label: 'Fly Down',    value: 'down',    unit: 's', icon: DownIcon },
-  { label: 'Fly Left',    value: 'left',    unit: 's', icon: LeftIcon },
+  { label: 'Fly Left',    value: 'left',    unit: 's', icon: LeftIcon },  
   { label: 'Fly Right',   value: 'right',   unit: 's', icon: RightIcon },
   { label: 'Fly Forward', value: 'forward', unit: 's', icon: ForwardIcon },
   { label: 'Fly Back',    value: 'back',    unit: 's', icon: BackwardIcon },

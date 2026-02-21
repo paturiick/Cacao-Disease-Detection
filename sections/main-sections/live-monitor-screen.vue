@@ -6,7 +6,6 @@ import MetricCard from '~/components/molecules/live_monitor_molecules/MetricCard
 import VideoStreamPlayer from '~/components/molecules/live_monitor_molecules/VideoStreamPlayer.vue';
 
 const isStreamConnected = ref(false);
-const videoSource = ref('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
 
 const toggleStream = () => {
   isStreamConnected.value = !isStreamConnected.value;
@@ -34,7 +33,6 @@ const toggleStream = () => {
           <div class="flex-1 min-h-[400px]">
             <VideoStreamPlayer 
               :is-connected="isStreamConnected"
-              :stream-url="videoSource"
               @toggle-stream="toggleStream"
             />
           </div>

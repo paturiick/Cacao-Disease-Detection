@@ -14,8 +14,18 @@ const props = defineProps({
   activePage: {
     type: String,
     required: true
+  },
+  // Added droneStatus prop to receive data from the screen
+  droneStatus: {
+    type: String,
+    default: 'Disconnected'
   }
 });
+
+// Convert the string status from the DB into the boolean NavBarBranding expects
+const isConnected = computed(() => 
+  ['Connected', 'Streaming'].includes(props.droneStatus)
+);
 
 const iconComponents = {
   'plane': IconPlane,
@@ -68,7 +78,10 @@ const logout = () => navigateTo('/login');
 <template>
   <header class="w-full bg-white shadow-md px-6 py-3 flex items-center justify-between z-50 relative">
     
-    <NavBarBranding @click="logout" />
+    <NavBarBranding 
+      :is-connected="isConnected" 
+      @click="logout" 
+    />
 
     <div class="flex-1 flex justify-center mx-4">
       <ActivePageBanner 
