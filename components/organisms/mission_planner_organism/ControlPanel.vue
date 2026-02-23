@@ -6,8 +6,10 @@ import MissionControlCard from './MissionControlCard.vue';
 const props = defineProps({
   hasMission: Boolean,
   isRunning: Boolean,
-  // Processing state specifically for the landing command
-  isLanding: { type: Boolean, default: false },
+  isLanding: { 
+    type: Boolean, 
+    default: false 
+  },
   telemetry: {
     type: Object,
     default: () => ({
@@ -18,7 +20,6 @@ const props = defineProps({
   }
 });
 
-// Define emits to send the trigger to the main screen logic
 defineEmits(['run', 'force-land']);
 </script>
 
@@ -28,18 +29,18 @@ defineEmits(['run', 'force-land']);
     
     <MissionControlCard 
       :isRunning="isRunning" 
+      :isDisabled="!hasMission || isRunning"
       :isLanding="isLanding"
-      :isDisabled="!hasMission" 
       @run="$emit('run')"
       @force-land="$emit('force-land')"
     />
 
     <div class="grid grid-cols-2 gap-4">
       <TelemetryItem 
-        label="Connection" 
+        label="Connection Status" 
         :value="telemetry.gps" 
-        :barColor="['Strong', 'Connected', 'Streaming'].includes(telemetry.gps) ? 'bg-green-500' : 'bg-red-500'" 
-        :percent="['Strong', 'Connected', 'Streaming'].includes(telemetry.gps) ? 100 : 0"
+        :barColor="telemetry.gps === 'Strong' || telemetry.gps === 'Streaming' ? 'bg-green-500' : 'bg-gray-300'" 
+        :percent="telemetry.gps === 'Strong' || telemetry.gps === 'Streaming' ? 90 : 0"
       >
          <template #icon>
            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -51,10 +52,10 @@ defineEmits(['run', 'force-land']);
       
       <TelemetryItem 
         label="Battery" 
-        :value="telemetry.battery" 
+        :value="telemetry.gps === 'No Signal' ? 0 : telemetry.battery" 
         unit="%" 
-        :barColor="telemetry.batteryColor" 
-        :percent="telemetry.battery"
+        :barColor="telemetry.gps === 'No Signal' ? 'bg-gray-300' : telemetry.batteryColor" 
+        :percent="telemetry.gps === 'No Signal' ? 0 : telemetry.battery"
       >
          <template #icon>
            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

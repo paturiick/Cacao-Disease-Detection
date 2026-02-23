@@ -26,6 +26,7 @@ const planId = ref(null);
 
 const missionQueue = ref([]);
 const isRunning = ref(false);
+const isLanding = ref(false); // Tracks emergency landing progress
 const currentStepIndex = ref(-1);
 
 const flightParams = reactive({
@@ -82,31 +83,30 @@ const applyTelemetry = (gps, battery) => {
 
 // --- Load active plan on mount ---
 onMounted(async () => {
-  try{
+  try {
      const plan = await missionApi.getActive();
-  planId.value = plan.id;
+     planId.value = plan.id;
 
-  // hydrate params
-  flightParams.altitude = plan.altitude;
-  flightParams.speed = plan.speed;
-  flightParams.mode = plan.mode;
+     // hydrate params
+     flightParams.altitude = plan.altitude;
+     flightParams.speed = plan.speed;
+     flightParams.mode = plan.mode;
 
-  // hydrate steps
-  missionQueue.value = (plan.steps || [])
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    .map(decorateStep);
+     // hydrate steps
+     missionQueue.value = (plan.steps || [])
+       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+       .map(decorateStep);
 
-  // initial telemetry snapshot (if present)
-  applyTelemetry(plan.gps, plan.battery);
+     // initial telemetry snapshot (if present)
+     applyTelemetry(plan.gps, plan.battery);
 
-  // reflect backend status if it was left running/queued
-  if (plan.status === 'running' || plan.status === 'queued') {
-    isRunning.value = true;
-    startStatusPoll();
-  }
+     // reflect backend status if it was left running/queued
+     if (plan.status === 'running' || plan.status === 'queued') {
+       isRunning.value = true;
+       startStatusPoll();
+     }
   } catch(e) {
     console.error("Failed to load active plan:", e);
-
   }
 });
 
@@ -128,7 +128,7 @@ watch(
   { deep: true }
 );
 
-// --- HANDLERS (now backend-driven) ---
+// --- HANDLERS ---
 const handleAddCommand = async (cmd) => {
   if (!planId.value) return;
 
@@ -173,16 +173,13 @@ const startStatusPoll = () => {
 
     applyTelemetry(s.gps, s.battery);
 
-    // show active index while running
     if (s.status === 'running') currentStepIndex.value = s.active_index ?? -1;
     else currentStepIndex.value = -1;
 
-    console.log("STATUS POLL:", s);
-
-
-    if (['completed', 'failed', 'cancelled'].includes(s.status)) {
+    if (['completed', 'failed', 'cancelled', 'inactive'].includes(s.status)) {
       stopStatusPoll();
       isRunning.value = false;
+      isLanding.value = false; // Reset landing state when status changes
       currentStepIndex.value = -1;
 
       modalConfig.title = s.status === 'completed' ? 'Mission Complete' : 'Mission Ended';
@@ -210,6 +207,23 @@ const handleRunMission = async () => {
   startStatusPoll();
 };
 
+// --- EMERGENCY HANDLER ---
+const handleEmergencyLand = async () => {
+  if (!planId.value || isLanding.value) return;
+
+  isLanding.value = true;
+  try {
+    // This calls the trigger_emergency_land function in your Django backend
+    await missionApi.forceLand(planId.value);
+    console.log("Emergency command dispatched to DJI Tello Talent.");
+  } catch (e) {
+    console.error("Emergency landing failed to execute:", e);
+  } finally {
+    // Reset local landing state after status polling confirms mission ended
+    setTimeout(() => { isLanding.value = false; }, 2000);
+  }
+};
+
 onBeforeUnmount(() => {
   stopStatusPoll();
   clearTimeout(fpTimer);
@@ -224,7 +238,7 @@ onBeforeUnmount(() => {
     <div class="absolute inset-0 bg-black/40 z-0"></div>
 
     <div class="z-20 relative">
-      <DashboardNavBar active-page="mission-planner" />
+      <DashboardNavBar :activePage="'mission-planner'" :droneStatus="telemetry.gps"/>
     </div>
 
     <div class="flex-1 z-10 p-6 overflow-y-auto relative">
@@ -250,8 +264,10 @@ onBeforeUnmount(() => {
           <ControlPanel
             :hasMission="missionQueue.length > 0"
             :isRunning="isRunning"
+            :isLanding="isLanding" 
             :telemetry="telemetry"
             @run="handleRunMission"
+            @force-land="handleEmergencyLand" 
           />
         </div>
 

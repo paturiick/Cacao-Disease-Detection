@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue';
-
 import NavBarBranding from '~/components/molecules/NavBarBranding.vue';
 import ActivePageBanner from '~/components/molecules/ActivePageBanner.vue';
 import NavCircleButton from '~/components/molecules/NavCircleButton.vue';
@@ -11,65 +10,21 @@ import IconMap from '~/components/atoms/IconMap.vue';
 import IconReport from '~/components/atoms/IconReport.vue';
 
 const props = defineProps({
-  activePage: {
-    type: String,
-    required: true
-  },
-  // Added droneStatus prop to receive data from the screen
-  droneStatus: {
-    type: String,
-    default: 'Disconnected'
-  }
+  activePage: { type: String, required: true },
+  droneStatus: { type: String, default: 'No Signal' }
 });
 
-// Convert the string status from the DB into the boolean NavBarBranding expects
-const isConnected = computed(() => 
-  ['Connected', 'Streaming'].includes(props.droneStatus)
-);
-
-const iconComponents = {
-  'plane': IconPlane,
-  'wifi': IconWifi,
-  'map': IconMap,
-  'doc': IconReport
-};
+const iconComponents = { 'plane': IconPlane, 'wifi': IconWifi, 'map': IconMap, 'doc': IconReport };
 
 const pages = {
-  'mission-planner': {
-    label: 'Mission Planner',
-    path: '/mission-planner',
-    color: 'bg-[#3E2723]',
-    iconKey: 'plane'
-  },
-  'live-monitor': {
-    label: 'Live Monitor',
-    path: '/live-monitor',
-    color: 'bg-[#C60C0C]',
-    iconKey: 'wifi'
-  },
-  'map-geotagging': {
-    label: 'Map and Geotagging',
-    path: '/map-geotagging',
-    color: 'bg-[#658D1B]',
-    iconKey: 'map'
-  },
-  'report': {
-    label: 'Report',
-    path: '/report',
-    color: 'bg-[#F57F17]',
-    iconKey: 'doc'
-  }
+  'mission-planner': { label: 'Mission Planner', path: '/mission-planner', color: 'bg-[#3E2723]', iconKey: 'plane' },
+  'live-monitor': { label: 'Live Monitor', path: '/live-monitor', color: 'bg-[#C60C0C]', iconKey: 'wifi' },
+  'map-geotagging': { label: 'Map and Geotagging', path: '/map-geotagging', color: 'bg-[#658D1B]', iconKey: 'map' },
+  'report': { label: 'Report', path: '/report', color: 'bg-[#F57F17]', iconKey: 'doc' }
 };
 
-const currentPage = computed(() => {
-  const page = pages[props.activePage];
-  return page || pages['mission-planner'];
-});
-
-const navigationLinks = computed(() => {
-  if (!currentPage.value) return []; 
-  return Object.values(pages).filter(p => p.label !== currentPage.value.label);
-});
+const currentPage = computed(() => pages[props.activePage] || pages['mission-planner']);
+const navigationLinks = computed(() => Object.values(pages).filter(p => p.label !== currentPage.value.label));
 
 const goTo = (path) => navigateTo(path);
 const logout = () => navigateTo('/login'); 
@@ -77,18 +32,13 @@ const logout = () => navigateTo('/login');
 
 <template>
   <header class="w-full bg-white shadow-md px-6 py-3 flex items-center justify-between z-50 relative">
-    
     <NavBarBranding 
-      :is-connected="isConnected" 
+      :connectionStatus="droneStatus" 
       @click="logout" 
     />
 
     <div class="flex-1 flex justify-center mx-4">
-      <ActivePageBanner 
-        v-if="currentPage"
-        :label="currentPage.label"
-        :color-class="currentPage.color"
-      >
+      <ActivePageBanner v-if="currentPage" :label="currentPage.label" :color-class="currentPage.color">
         <template #icon>
           <component :is="iconComponents[currentPage.iconKey]" class="text-white" />
         </template>
@@ -96,18 +46,9 @@ const logout = () => navigateTo('/login');
     </div>
 
     <div class="flex items-center space-x-3">
-      <NavCircleButton 
-        v-for="page in navigationLinks" 
-        :key="page.path"
-        :label="page.label"
-        :color-class="page.color"
-        @click="goTo(page.path)"
-      >
-        <template #icon>
-          <component :is="iconComponents[page.iconKey]" />
-        </template>
+      <NavCircleButton v-for="page in navigationLinks" :key="page.path" :label="page.label" :color-class="page.color" @click="goTo(page.path)">
+        <template #icon><component :is="iconComponents[page.iconKey]" /></template>
       </NavCircleButton>
     </div>
-
   </header>
 </template>
