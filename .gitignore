@@ -6,6 +6,9 @@
 .cache
 dist
 
+.venv/
+django/.venv/
+
 # Node dependencies
 node_modules
 
@@ -22,3 +25,13 @@ logs
 .env
 .env.*
 !.env.example
+
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Django
+db.sqlite3
