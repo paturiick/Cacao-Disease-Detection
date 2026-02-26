@@ -19,21 +19,22 @@ defineProps({
     </SectionHeader>
 
     <div class="mt-6 flex flex-col gap-4">
+      
       <div class="space-y-1">
         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Location</p>
         <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 font-mono text-sm font-black text-slate-800">
-          {{ data.lat.toFixed(6) }}, {{ data.lng.toFixed(6) }}
+          {{ data.lat?.toFixed(6) ?? '0.000000' }}, {{ data.lng?.toFixed(6) ?? '0.000000' }}
         </div>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
         <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
           <p class="text-[9px] font-bold text-slate-400 uppercase">Altitude</p>
-          <p class="text-lg font-black text-[#3E2723]">{{ data.alt.toFixed(1) }}m</p>
+          <p class="text-lg font-black text-[#3E2723]">{{ data.alt?.toFixed(1) ?? '0.0' }}m</p>
         </div>
         <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
           <p class="text-[9px] font-bold text-slate-400 uppercase">Speed</p>
-          <p class="text-lg font-black text-[#3E2723]">{{ data.speed.toFixed(1) }}m/s</p>
+          <p class="text-lg font-black text-[#3E2723]">{{ data.speed?.toFixed(1) ?? '0.0' }}m/s</p>
         </div>
       </div>
 
@@ -42,21 +43,22 @@ defineProps({
       <div class="space-y-3">
         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-[#658D1B]">Cacao Analysis</p>
         
-        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
+        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100 shadow-sm">
           <div class="flex flex-col">
-            <span class="text-[10px] font-bold text-red-700 uppercase leading-none mb-1">Marked with</span>
-            <span class="text-xs font-black text-red-900 uppercase">Disease</span>
+            <span class="text-[10px] font-bold text-red-700 uppercase leading-none mb-1">Detected</span>
+            <span class="text-xs font-black text-red-900 uppercase">Black Pod</span>
           </div>
-          <span class="text-2xl font-black text-red-800">{{ data.diseasedCacao }}</span>
+          <span class="text-2xl font-black text-red-800">{{ data.diseased ?? 0 }}</span>
         </div>
 
-        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
+        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100 shadow-sm">
           <div class="flex flex-col">
-            <span class="text-[10px] font-bold text-green-700 uppercase leading-none mb-1">Marked as</span>
+            <span class="text-[10px] font-bold text-green-700 uppercase leading-none mb-1">Detected</span>
             <span class="text-xs font-black text-green-900 uppercase">Healthy</span>
           </div>
-          <span class="text-2xl font-black text-green-800">{{ data.healthyCacao }}</span>
+          <span class="text-2xl font-black text-green-800">{{ data.healthy ?? 0 }}</span>
         </div>
+
       </div>
     </div>
   </BaseCard>
