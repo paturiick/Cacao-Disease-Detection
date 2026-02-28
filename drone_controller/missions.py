@@ -68,6 +68,14 @@ class MissionBuilder:
         self.steps.append(MissionStep("stop", delay_s))
         return self
 
+    def mon(self, delay_s: float = 1.0):
+        self.steps.append(MissionStep("mon", delay_s))
+        return self
+
+    def moff(self, delay_s: float = 1.0):
+        self.steps.append(MissionStep("moff", delay_s))
+        return self
+
     def go_xyz(self, x: int, y: int, z: int, speed: int = 30, delay_s: float = 1.0):
         x_val = max(-500, min(500, x))
         y_val = max(-500, min(500, y))

@@ -50,6 +50,10 @@ const handleAdd = () => {
     // 4. Reset only x, y, z
     goParams.x = 0; goParams.y = 0; goParams.z = 0; 
   } 
+  else if (newCommand.type === 'mon') {
+    // Emit 'mon' without any value
+    emit('add', { type: 'mon', val: '' });
+  }
   else {
     if (!newCommand.val) {
       errorMessage.value = "Please enter a valid duration or value.";
@@ -89,6 +93,11 @@ const handleAdd = () => {
         <div class="flex flex-col"><label class="text-xs text-gray-600 mb-1">Y (-500 to 500)</label><input type="number" v-model="goParams.y" class="border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-[#658D1B] focus:ring-1" /></div>
         
         <div class="flex flex-col col-span-2"><label class="text-xs text-gray-600 mb-1">Z (-500 to 500)</label><input type="number" v-model="goParams.z" class="border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-[#658D1B] focus:ring-1" /></div>
+      </div>
+
+      <div v-else-if="newCommand.type === 'mon'" class="p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2">
+        <svg class="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <p class="text-xs text-blue-800 font-medium">Enables downward camera detection. No additional parameters are required for this command.</p>
       </div>
 
       <div v-else class="flex flex-col group">
