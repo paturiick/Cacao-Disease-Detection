@@ -9,13 +9,16 @@ _inited = False
 _brain: DroneBrain | None = None
 
 def ensure_runtime():
-    """Ensures the DroneBrain is instantiated exactly once."""
     global _inited, _brain
     with _lock:
         if _inited:
             return
         _brain = DroneBrain()
         _inited = True
+
+def get_brain() -> DroneBrain | None:
+    ensure_runtime()
+    return _brain
 
 def connect():
     ensure_runtime()
@@ -55,7 +58,6 @@ def status() -> dict:
     v = {"video_last_pkt_bytes": _brain.video.last_packet_size()}
     c = _brain.client.status()
     
-    # Deadman's Switch logic: mark disconnected if no telemetry for 3 seconds
     last_update = t.get("updated_at")
     is_alive = last_update and (time.time() - last_update < 3.0)
             
@@ -89,3 +91,42 @@ def get_video_stream() -> bytes:
     if not _brain:
         return b""
     return _brain.get_video_stream()    
+
+def run_mission(steps: list) -> dict:
+    """Passes a list of flight steps to the MissionExecutor."""
+    ensure_runtime()
+    
+    if not _brain or not getattr(_brain.client, '_connected', False):
+        return {"ok": False, "text": "Cannot start mission: Drone is disconnected."}
+        
+    try:
+        result = _brain.run_flight_plan(steps)
+        
+        return {
+            "ok": True, 
+            "text": "Mission execution started", 
+            "details": result
+        }
+    except Exception as e:
+        return {"ok": False, "text": f"Mission failed to start: {str(e)}"}
+    
+def get_mission_progress() -> dict:
+    brain = get_brain()
+    
+    if not brain:
+        return {"status": "inactive", "active_index": -1, "message": "Hardware controller not initialized."}
+        
+    state = brain.mission_executor.state
+    is_connected = getattr(brain.client, '_connected', False)
+
+    if state["status"] == "running" and not is_connected:
+        state["status"] = "failed"
+        state["message"] = "Drone disconnected or shut down during mission."
+        state["active_index"] = -1
+        brain.mission_executor.cancel() # Kills the background thread
+
+    return {
+        "status": state["status"],             
+        "active_index": state["active_index"], 
+        "message": state["message"]            
+    }

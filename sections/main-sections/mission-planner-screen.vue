@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, ref, onMounted, watch, onBeforeUnmount } from 'vue';
-import { missionApi } from "../api/missionApi";
+import { missionApi } from "~/sections/api/missionApi"; // Adjusted path based on your previous setup
 
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 
@@ -31,10 +31,11 @@ const currentStepIndex = ref(-1);
 
 const flightParams = reactive({
   altitude: 2,
-  speed: 1,
+  speed: 30, // Defaulted to 30 based on your SDK limits
   mode: 'Stabilize'
 });
 
+// Telemetry is now just a placeholder for the props passed to ControlPanel
 const telemetry = reactive({
   gps: 'Weak',
   battery: 0,
@@ -53,15 +54,14 @@ const modalConfig = reactive({
 
 // --- COMMAND OPTIONS ---
 const commandOptions = [
-  // Added Up and Down commands with your original 's' unit
-  { label: 'Fly Up',      value: 'up',      unit: 's', icon: UpIcon },
-  { label: 'Fly Down',    value: 'down',    unit: 's', icon: DownIcon },
-  { label: 'Fly Left',    value: 'left',    unit: 's', icon: LeftIcon },  
-  { label: 'Fly Right',   value: 'right',   unit: 's', icon: RightIcon },
-  { label: 'Fly Forward', value: 'forward', unit: 's', icon: ForwardIcon },
-  { label: 'Fly Back',    value: 'back',    unit: 's', icon: BackwardIcon },
-  { label: 'Rotate CW',   value: 'cw',      unit: 's', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>` },
-  { label: 'Rotate CCW',  value: 'ccw',     unit: 's', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transform: scaleX(-1);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>` },
+  { label: 'Fly Up',      value: 'up',      unit: 'cm', icon: UpIcon },
+  { label: 'Fly Down',    value: 'down',    unit: 'cm', icon: DownIcon },
+  { label: 'Fly Left',    value: 'left',    unit: 'cm', icon: LeftIcon },  
+  { label: 'Fly Right',   value: 'right',   unit: 'cm', icon: RightIcon },
+  { label: 'Fly Forward', value: 'forward', unit: 'cm', icon: ForwardIcon },
+  { label: 'Fly Back',    value: 'back',    unit: 'cm', icon: BackwardIcon },
+  { label: 'Rotate CW',   value: 'cw',      unit: 'deg', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>` },
+  { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transform: scaleX(-1);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>` },
   { label: 'Hover',       value: 'hover',   unit: 's', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>` },
   { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z spd', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>` },
 ];
@@ -75,14 +75,8 @@ const decorateStep = (stepDto) => {
     val: stepDto.val,
     label: details?.label ?? stepDto.type,
     icon: details?.icon ?? null,
-    unit: details?.unit ?? 's'
+    unit: details?.unit ?? 's' // Tello uses cm/deg for most movements, not seconds
   };
-};
-
-const applyTelemetry = (gps, battery) => {
-  telemetry.gps = gps ?? 'Weak';
-  telemetry.battery = Number.isFinite(battery) ? battery : 0;
-  telemetry.batteryColor = telemetry.battery >= 50 ? 'bg-[#658D1B]' : 'bg-red-500';
 };
 
 // --- Load active plan on mount ---
@@ -101,11 +95,9 @@ onMounted(async () => {
        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
        .map(decorateStep);
 
-     // initial telemetry snapshot (if present)
-     applyTelemetry(plan.gps, plan.battery);
-
-     // reflect backend status if it was left running/queued
-     if (plan.status === 'running' || plan.status === 'queued') {
+     // Check backend for active mission status
+     const s = await missionApi.status();
+     if (s.status === 'running' || s.status === 'queued') {
        isRunning.value = true;
        startStatusPoll();
      }
@@ -171,55 +163,69 @@ const stopStatusPoll = () => {
 const startStatusPoll = () => {
   stopStatusPoll();
   statusPoll = setInterval(async () => {
-    if (!planId.value) return;
+    try {
+      const s = await missionApi.status();
 
-    const s = await missionApi.status(planId.value);
+      // Update the progress bar index
+      if (s.status === 'running') {
+          currentStepIndex.value = s.active_index ?? -1;
+      } else {
+          currentStepIndex.value = -1;
+      }
 
-    applyTelemetry(s.gps, s.battery);
+      // Check for completion/failure
+      if (['completed', 'failed', 'cancelled', 'inactive'].includes(s.status)) {
+        stopStatusPoll();
+        isRunning.value = false;
+        
+        isLanding.value = false; // Reset landing state
+        currentStepIndex.value = -1;
 
-    if (s.status === 'running') currentStepIndex.value = s.active_index ?? -1;
-    else currentStepIndex.value = -1;
+        modalConfig.title = s.status === 'completed' ? 'Mission Complete' : 'Mission Ended';
+        modalConfig.message =
+          s.status === 'completed'
+            ? 'The drone has successfully executed all flight plan commands.'
+            : (s.message || `Mission status: ${s.status}`);
 
-    if (['completed', 'failed', 'cancelled', 'inactive'].includes(s.status)) {
-      stopStatusPoll();
-      isRunning.value = false;
-      isLanding.value = false; // Reset landing state when status changes
-      currentStepIndex.value = -1;
+        modalConfig.isWarning = s.status !== 'completed';
+        modalConfig.isSuccess = s.status === 'completed';
+        modalConfig.cancelText = 'Close';
 
-      modalConfig.title = s.status === 'completed' ? 'Mission Complete' : 'Mission Ended';
-      modalConfig.message =
-        s.status === 'completed'
-          ? 'The drone has successfully executed all flight plan commands.'
-          : (s.message || `Mission status: ${s.status}`);
-
-      modalConfig.isWarning = s.status !== 'completed';
-      modalConfig.isSuccess = s.status === 'completed';
-      modalConfig.cancelText = 'Close';
-
-      showCompleteModal.value = true;
+        showCompleteModal.value = true;
+      }
+    } catch (e) {
+        console.error("Status poll failed", e);
     }
   }, 1000);
 };
 
 const handleRunMission = async () => {
-  if (!planId.value) return;
-
   isRunning.value = true;
   currentStepIndex.value = -1;
 
-  await missionApi.run(planId.value);
-  startStatusPoll();
+  try {
+      // Trigger the background thread
+      const res = await missionApi.run();
+      if (!res.ok) {
+          alert("Mission failed to start: " + res.text);
+          isRunning.value = false;
+          return;
+      }
+      startStatusPoll();
+  } catch (e) {
+      console.error("Mission run failed", e);
+      isRunning.value = false;
+  }
 };
 
-// --- EMERGENCY HANDLER ---
+// --- LIVE OVERRIDE HANDLERS ---
 const handleEmergencyLand = async () => {
-  if (!planId.value || isLanding.value) return;
-
+  if (isLanding.value) return;
   isLanding.value = true;
+  
   try {
-    // This calls the trigger_emergency_land function in your Django backend
-    await missionApi.forceLand(planId.value);
-    console.log("Emergency command dispatched to DJI Tello Talent.");
+    await missionApi.forceLand();
+    console.log("Emergency command dispatched.");
   } catch (e) {
     console.error("Emergency landing failed to execute:", e);
   } finally {
@@ -228,10 +234,8 @@ const handleEmergencyLand = async () => {
   }
 };
 
-// --- NEW: LIVE OVERRIDE HANDLERS ---
 const handleStopHover = async () => {
   try {
-    // Requires your missionApi.js to have a sendCommand function
     await missionApi.sendCommand('stop'); 
     console.log("Drone braking and hovering.");
   } catch (e) {
@@ -241,7 +245,6 @@ const handleStopHover = async () => {
 
 const handleEmergencyCutoff = async () => {
   try {
-    // Requires your missionApi.js to have a sendCommand function
     await missionApi.sendCommand('emergency'); 
     console.warn("EMERGENCY CUTOFF TRIGGERED! Motors stopped.");
   } catch (e) {

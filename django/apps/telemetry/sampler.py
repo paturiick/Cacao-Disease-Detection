@@ -4,7 +4,6 @@ from datetime import timedelta
 from django.utils import timezone
 from django.db import close_old_connections
 
-# Import both status and the new telemetry function from your core services
 from apps.drone_runtime.services import status as runtime_status, telemetry as runtime_telemetry
 from .models import TelemetrySnapshot
 
@@ -21,16 +20,13 @@ def start_sampler(sample_every_s: float = 1.0):
     def loop():
         while True:
             try:
-                # Clean up idle database connections to prevent memory leaks
                 close_old_connections()
                 
-                # Fetch separated data
                 s = runtime_status()
                 t = runtime_telemetry()
                 
                 is_connected = bool(s.get("connected", False))
                 
-                # 1. SMART FILTER: Only save data if the drone is actually connected
                 if is_connected:
                     TelemetrySnapshot.objects.create(
                         connected=True,
