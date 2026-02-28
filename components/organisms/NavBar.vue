@@ -1,5 +1,7 @@
 <script setup>
 import { computed } from 'vue';
+import { useDrone } from '~/sections/api/statusApi.js'; 
+
 import NavBarBranding from '~/components/molecules/NavBarBranding.vue';
 import ActivePageBanner from '~/components/molecules/ActivePageBanner.vue';
 import NavCircleButton from '~/components/molecules/NavCircleButton.vue';
@@ -10,8 +12,14 @@ import IconMap from '~/components/atoms/IconMap.vue';
 import IconReport from '~/components/atoms/IconReport.vue';
 
 const props = defineProps({
-  activePage: { type: String, required: true },
-  droneStatus: { type: String, default: 'No Signal' }
+  activePage: { type: String, required: true }
+});
+
+const { isConnected, isConnecting, connectDrone } = useDrone();
+
+const currentDroneStatus = computed(() => {
+  if (isConnecting?.value) return 'Syncing...';
+  return isConnected?.value ? 'Connected' : 'Disconnected';
 });
 
 const iconComponents = { 'plane': IconPlane, 'wifi': IconWifi, 'map': IconMap, 'doc': IconReport };
@@ -32,8 +40,9 @@ const logout = () => navigateTo('/login');
 
 <template>
   <header class="w-full bg-white shadow-md px-6 py-3 flex items-center justify-between z-50 relative">
+    
     <NavBarBranding 
-      :connectionStatus="droneStatus" 
+      :connectionStatus="currentDroneStatus" 
       @click="logout" 
     />
 
@@ -46,8 +55,18 @@ const logout = () => navigateTo('/login');
     </div>
 
     <div class="flex items-center space-x-3">
-      <NavCircleButton v-for="page in navigationLinks" :key="page.path" :label="page.label" :color-class="page.color" @click="goTo(page.path)">
-        <template #icon><component :is="iconComponents[page.iconKey]" /></template>
+  
+
+      <NavCircleButton 
+        v-for="page in navigationLinks" 
+        :key="page.path" 
+        :label="page.label" 
+        :color-class="page.color" 
+        @click="goTo(page.path)"
+      >
+        <template #icon>
+          <component :is="iconComponents[page.iconKey]" />
+        </template>
       </NavCircleButton>
     </div>
   </header>

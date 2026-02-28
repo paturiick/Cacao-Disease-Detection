@@ -38,15 +38,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'api',
     "rest_framework",
     "corsheaders",
 
-    "api.missions",
-    "api.live",
-    "api.reports",
-    "api.mapping",
-    "api.detections",
+    "apps.api",
+    "apps.core",
+    "apps.drone_runtime",
+    "apps.telemetry",
+    "apps.missions",
+    "apps.live",
+    "apps.mapping",
+    "apps.detections",
+    "apps.reports",
+
 ]
 
 MIDDLEWARE = [
@@ -70,6 +74,8 @@ CORS_ALLOW_HEADERS = [
 ]
 
 ROOT_URLCONF = 'backend.urls'
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 TEMPLATES = [
     {
