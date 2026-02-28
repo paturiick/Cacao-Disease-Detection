@@ -5,8 +5,6 @@ import { missionApi } from "../api/missionApi";
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 
 // --- ICONS ---
-import UpIcon from '~/assets/icons/Up.svg';
-import DownIcon from '~/assets/icons/Down.svg';
 import LeftIcon from '~/assets/icons/Left.svg';
 import RightIcon from '~/assets/icons/Right.svg';
 import ForwardIcon from '~/assets/icons/Forward.svg';
@@ -30,8 +28,8 @@ const isLanding = ref(false); // Tracks emergency landing progress
 const currentStepIndex = ref(-1);
 
 const flightParams = reactive({
-  altitude: 5,
-  speed: 2,
+  altitude: 2,
+  speed: 1,
   mode: 'Stabilize'
 });
 
@@ -60,6 +58,7 @@ const commandOptions = [
   { label: 'Rotate CW',   value: 'cw',      unit: 's', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>` },
   { label: 'Rotate CCW',  value: 'ccw',     unit: 's', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transform: scaleX(-1);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>` },
   { label: 'Hover',       value: 'hover',   unit: 's', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>` },
+  { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z spd', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>` },
 ];
 
 // --- helpers ---
@@ -224,6 +223,27 @@ const handleEmergencyLand = async () => {
   }
 };
 
+// --- NEW: LIVE OVERRIDE HANDLERS ---
+const handleStopHover = async () => {
+  try {
+    // Requires your missionApi.js to have a sendCommand function
+    await missionApi.sendCommand('stop'); 
+    console.log("Drone braking and hovering.");
+  } catch (e) {
+    console.error("Failed to stop drone:", e);
+  }
+};
+
+const handleEmergencyCutoff = async () => {
+  try {
+    // Requires your missionApi.js to have a sendCommand function
+    await missionApi.sendCommand('emergency'); 
+    console.warn("EMERGENCY CUTOFF TRIGGERED! Motors stopped.");
+  } catch (e) {
+    console.error("Emergency cutoff failed:", e);
+  }
+};
+
 onBeforeUnmount(() => {
   stopStatusPoll();
   clearTimeout(fpTimer);
@@ -267,7 +287,9 @@ onBeforeUnmount(() => {
             :isLanding="isLanding" 
             :telemetry="telemetry"
             @run="handleRunMission"
-            @force-land="handleEmergencyLand" 
+            @force-land="handleEmergencyLand"
+            @stop-hover="handleStopHover"
+            @emergency="handleEmergencyCutoff"
           />
         </div>
 
