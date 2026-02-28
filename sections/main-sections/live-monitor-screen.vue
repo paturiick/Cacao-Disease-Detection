@@ -1,9 +1,6 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue';
-
-// 1. Import your API service
 import { missionApi } from "../api/missionApi";
-
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 import MetricCard from '~/components/molecules/live_monitor_molecules/MetricCard.vue';
 import VideoStreamPlayer from '~/components/molecules/live_monitor_molecules/VideoStreamPlayer.vue';
@@ -12,7 +9,10 @@ const isStreamConnected = ref(false);
 const planId = ref(null);
 let telemetryPoll = null;
 
-// 2. Telemetry state initialized with fallbacks
+// NEW: Error handling state
+const errorMessage = ref('');
+let errorTimer = null;
+
 const telemetry = reactive({
   signal: 'Offline',
   battery: 0,
@@ -21,36 +21,54 @@ const telemetry = reactive({
   diseasedCacao: 0
 });
 
-const toggleStream = () => {
-  isStreamConnected.value = !isStreamConnected.value;
+// NEW: Helper function to show errors nicely
+const showError = (msg) => {
+  errorMessage.value = msg;
+  if (errorTimer) clearTimeout(errorTimer);
+  errorTimer = setTimeout(() => {
+    errorMessage.value = '';
+  }, 5000); // Auto-hide after 5 seconds
 };
 
-// 3. Connect to Backend and Poll Status on Mount
+const toggleStream = async () => {
+  errorMessage.value = ''; // Clear previous errors
+  try {
+    if (!isStreamConnected.value) {
+      console.log("Sending streamon command to drone...");
+      await missionApi.sendCommand('streamon'); 
+      isStreamConnected.value = true; 
+    } else {
+      console.log("Sending streamoff command to drone...");
+      await missionApi.sendCommand('streamoff');
+      isStreamConnected.value = false; 
+    }
+  } catch (error) {
+    console.error("Failed to toggle drone video stream:", error);
+    showError("Could not connect to the drone's camera. Please check the connection.");
+    isStreamConnected.value = false;
+  }
+};
+
 onMounted(async () => {
   try {
-    // Fetch the active flight plan
     const plan = await missionApi.getActive();
     if (plan) {
       planId.value = plan.id;
       
-      // Set initial state from the plan payload
       telemetry.signal = plan.gps ?? 'Weak';
       telemetry.battery = plan.battery ?? 0;
       telemetry.altitude = plan.altitude ?? 0;
 
-      // Start the 1-second interval loop to fetch real-time updates
       telemetryPoll = setInterval(async () => {
         if (!planId.value) return;
 
         try {
           const s = await missionApi.status(planId.value);
           
-          // Apply the real drone data to your reactive variables
           telemetry.signal = s.gps ?? telemetry.signal;
           telemetry.battery = s.battery ?? telemetry.battery;
           telemetry.altitude = s.alt ?? telemetry.altitude; 
           
-          // Update detection metrics (adjust 'healthy_cacao' to match your exact backend keys)
           telemetry.healthyCacao = s.healthy_cacao ?? telemetry.healthyCacao;
           telemetry.diseasedCacao = s.diseased_cacao ?? telemetry.diseasedCacao;
 
@@ -61,12 +79,13 @@ onMounted(async () => {
     }
   } catch(e) {
     console.error("Failed to load active plan or connect to drone:", e);
+    showError("Failed to establish a connection with the drone telemetry.");
   }
 });
 
-// 4. Clean up the loop when leaving the screen
 onUnmounted(() => {
   if (telemetryPoll) clearInterval(telemetryPoll);
+  if (errorTimer) clearTimeout(errorTimer);
 });
 </script>
 
@@ -80,6 +99,30 @@ onUnmounted(() => {
     <div class="z-20 relative">
       <DashboardNavBar active-page="live-monitor" />
     </div>
+
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="transform -translate-y-4 opacity-0"
+      enter-to-class="transform translate-y-0 opacity-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="transform translate-y-0 opacity-100"
+      leave-to-class="transform -translate-y-4 opacity-0"
+    >
+      <div 
+        v-if="errorMessage" 
+        class="absolute top-24 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3 bg-red-50 text-red-700 border border-red-200 px-4 py-3 rounded-lg shadow-xl min-w-[300px] max-w-md"
+      >
+        <svg class="w-5 h-5 shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+        <span class="text-sm font-semibold flex-1">{{ errorMessage }}</span>
+        <button @click="errorMessage = ''" class="text-red-400 hover:text-red-700 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+    </Transition>
 
     <div class="flex-1 z-10 p-6 overflow-y-auto relative">
       <div class="flex flex-col h-full max-w-[1600px] mx-auto">

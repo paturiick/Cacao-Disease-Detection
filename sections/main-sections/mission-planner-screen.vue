@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, ref, onMounted, watch, onBeforeUnmount } from 'vue';
-import { missionApi } from "~/sections/api/missionApi"; // Adjusted path based on your previous setup
+import { missionApi } from "~/sections/api/missionApi"; 
 
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 
@@ -26,23 +26,23 @@ const planId = ref(null);
 
 const missionQueue = ref([]);
 const isRunning = ref(false);
-const isLanding = ref(false); // Tracks emergency landing progress
+const isLanding = ref(false); 
 const currentStepIndex = ref(-1);
 
+// flightParams now includes the missionPad state controlled by FlightParametersCard
 const flightParams = reactive({
-  altitude: 2,
-  speed: 30, // Defaulted to 30 based on your SDK limits
-  mode: 'Stabilize'
+  altitude: 1,
+  speed: 30, 
+  mode: 'Stabilize',
+  missionPad: false 
 });
 
-// Telemetry is now just a placeholder for the props passed to ControlPanel
 const telemetry = reactive({
   gps: 'Weak',
   battery: 0,
   batteryColor: 'bg-red-500'
 });
 
-// Modal
 const showCompleteModal = ref(false);
 const modalConfig = reactive({
   title: '',
@@ -53,6 +53,7 @@ const modalConfig = reactive({
 });
 
 // --- COMMAND OPTIONS ---
+// Removed 'Enable Mission Pad' ('mon') since it's now a global flight parameter toggle
 const commandOptions = [
   { label: 'Fly Up',      value: 'up',      unit: 'cm', icon: UpIcon },
   { label: 'Fly Down',    value: 'down',    unit: 'cm', icon: DownIcon },
@@ -63,20 +64,19 @@ const commandOptions = [
   { label: 'Rotate CW',   value: 'cw',      unit: 'deg', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>` },
   { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transform: scaleX(-1);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>` },
   { label: 'Hover',       value: 'hover',   unit: 's', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>` },
-  { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z spd', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>` },
-  { label: 'Enable Mission Pad',  value: 'mon',  unit: '', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>` },
-  ];
+  { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z spd', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>` }
+];
 
 // --- helpers ---
 const decorateStep = (stepDto) => {
   const details = commandOptions.find(c => c.value === stepDto.type);
   return {
-    id: stepDto.id,         // backend id
+    id: stepDto.id,         
     type: stepDto.type,
     val: stepDto.val,
     label: details?.label ?? stepDto.type,
     icon: details?.icon ?? null,
-    unit: details?.unit ?? 's' // Tello uses cm/deg for most movements, not seconds
+    unit: details?.unit ?? 's' 
   };
 };
 
@@ -86,17 +86,15 @@ onMounted(async () => {
      const plan = await missionApi.getActive();
      planId.value = plan.id;
 
-     // hydrate params
      flightParams.altitude = plan.altitude;
      flightParams.speed = plan.speed;
      flightParams.mode = plan.mode;
+     flightParams.missionPad = plan.missionPad ?? false; 
 
-     // hydrate steps
      missionQueue.value = (plan.steps || [])
        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
        .map(decorateStep);
 
-     // Check backend for active mission status
      const s = await missionApi.status();
      if (s.status === 'running' || s.status === 'queued') {
        isRunning.value = true;
@@ -119,6 +117,7 @@ watch(
         altitude: flightParams.altitude,
         speed: flightParams.speed,
         mode: flightParams.mode,
+        missionPad: flightParams.missionPad 
       });
     }, 350);
   },
@@ -172,19 +171,17 @@ const startStatusPoll = () => {
     try {
       const s = await missionApi.status();
 
-      // Update the progress bar index
       if (s.status === 'running') {
           currentStepIndex.value = s.active_index ?? -1;
       } else {
           currentStepIndex.value = -1;
       }
 
-      // Check for completion/failure
       if (['completed', 'failed', 'cancelled', 'inactive'].includes(s.status)) {
         stopStatusPoll();
         isRunning.value = false;
         
-        isLanding.value = false; // Reset landing state
+        isLanding.value = false; 
         currentStepIndex.value = -1;
 
         modalConfig.title = s.status === 'completed' ? 'Mission Complete' : 'Mission Ended';
@@ -210,7 +207,6 @@ const handleRunMission = async () => {
   currentStepIndex.value = -1;
 
   try {
-      // Trigger the background thread
       const res = await missionApi.run();
       if (!res.ok) {
           alert("Mission failed to start: " + res.text);
@@ -235,7 +231,6 @@ const handleEmergencyLand = async () => {
   } catch (e) {
     console.error("Emergency landing failed to execute:", e);
   } finally {
-    // Reset local landing state after status polling confirms mission ended
     setTimeout(() => { isLanding.value = false; }, 2000);
   }
 };
