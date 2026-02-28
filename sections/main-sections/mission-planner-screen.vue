@@ -5,6 +5,8 @@ import { missionApi } from "../api/missionApi";
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 
 // --- ICONS ---
+import UpIcon from '~/assets/icons/Up.svg';
+import DownIcon from '~/assets/icons/Down.svg';
 import LeftIcon from '~/assets/icons/Left.svg';
 import RightIcon from '~/assets/icons/Right.svg';
 import ForwardIcon from '~/assets/icons/Forward.svg';
@@ -51,6 +53,9 @@ const modalConfig = reactive({
 
 // --- COMMAND OPTIONS ---
 const commandOptions = [
+  // Added Up and Down commands with your original 's' unit
+  { label: 'Fly Up',      value: 'up',      unit: 's', icon: UpIcon },
+  { label: 'Fly Down',    value: 'down',    unit: 's', icon: DownIcon },
   { label: 'Fly Left',    value: 'left',    unit: 's', icon: LeftIcon },  
   { label: 'Fly Right',   value: 'right',   unit: 's', icon: RightIcon },
   { label: 'Fly Forward', value: 'forward', unit: 's', icon: ForwardIcon },
