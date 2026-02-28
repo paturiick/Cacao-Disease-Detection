@@ -64,7 +64,8 @@ const commandOptions = [
   { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transform: scaleX(-1);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>` },
   { label: 'Hover',       value: 'hover',   unit: 's', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>` },
   { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z spd', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>` },
-];
+  { label: 'Enable Mission Pad',  value: 'mon',  unit: '', icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>` },
+  ];
 
 // --- helpers ---
 const decorateStep = (stepDto) => {
@@ -150,6 +151,11 @@ const handleClear = async () => {
   await missionApi.clearSteps(planId.value);
   missionQueue.value = [];
   currentStepIndex.value = -1;
+};
+
+const handleReorderCommand = async ({ from, to }) => {
+  const movedItem = missionQueue.value.splice(from, 1)[0];
+  missionQueue.value.splice(to, 0, movedItem);
 };
 
 // --- RUN + POLL STATUS ---
@@ -285,6 +291,7 @@ onBeforeUnmount(() => {
             :flightParams="flightParams"
             @remove="handleRemoveCommand"
             @clear="handleClear"
+            @reorder="handleReorderCommand" 
           />
         </div>
 
