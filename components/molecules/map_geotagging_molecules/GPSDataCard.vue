@@ -9,6 +9,10 @@ const props = defineProps({
 
 // Calculate 2D horizontal speed from vgx and vgy (dm/s to m/s)
 const calculatedSpeed = computed(() => {
+  // If we receive a direct speed from the API (which we do now), use that instead!
+  if (props.data.speed !== undefined && props.data.speed !== 0) {
+    return props.data.speed;
+  }
   if (props.data.vgx === undefined || props.data.vgy === undefined) return 0.0;
   const speedDm = Math.sqrt((props.data.vgx ** 2) + (props.data.vgy ** 2));
   return speedDm / 10; 
@@ -39,7 +43,7 @@ const calculatedSpeed = computed(() => {
         
         <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
           <p class="text-[9px] font-bold text-slate-400 uppercase">Altitude</p>
-          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.altitude_m?.toFixed(1) ?? '0.0' }}<span class="text-xs text-slate-500 ml-0.5">m</span></p>
+          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.alt?.toFixed(1) ?? '0.0' }}<span class="text-xs text-slate-500 ml-0.5">m</span></p>
         </div>
         
         <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
@@ -52,7 +56,10 @@ const calculatedSpeed = computed(() => {
           <p class="text-lg font-black leading-none mt-1 z-10" :class="data.battery <= 20 ? 'text-red-600' : 'text-[#3E2723]'">
             {{ data.battery ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">%</span>
           </p>
-          <div class="absolute bottom-0 left-0 h-1 bg-green-500 transition-all duration-1000" :style="{ width: `${data.battery ?? 0}%` }" :class="{ 'bg-red-500': data.battery <= 20 }"></div>
+          <div class="absolute bottom-0 left-0 h-1 transition-all duration-1000" 
+               :class="data.batteryColor ?? 'bg-green-500'" 
+               :style="{ width: `${data.battery ?? 0}%` }">
+          </div>
         </div>
 
         <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
@@ -72,12 +79,12 @@ const calculatedSpeed = computed(() => {
 
         <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
           <p class="text-[9px] font-bold text-slate-400 uppercase">ToF Dist</p>
-          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.tof_cm ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">cm</span></p>
+          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.tof ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">cm</span></p>
         </div>
 
         <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
           <p class="text-[9px] font-bold text-slate-400 uppercase">Temp</p>
-          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.temp_c ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">°C</span></p>
+          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.temp ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">°C</span></p>
         </div>
 
         <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">

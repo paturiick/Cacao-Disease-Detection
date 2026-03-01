@@ -1,6 +1,7 @@
 <script setup>
-import { reactive, ref, onMounted, watch, onBeforeUnmount } from 'vue';
+import { reactive, ref, onMounted, watch, onBeforeUnmount, computed } from 'vue';
 import { missionApi } from "~/sections/api/missionApi"; 
+import { useTelemetry } from "~/components/composables/useTelemetry"; // NEW: Global Store
 
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 
@@ -21,6 +22,9 @@ import ControlPanel from '~/components/organisms/mission_planner_organism/Contro
 // Modal
 import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
 
+// --- GLOBAL TELEMETRY STATE ---
+const { telemetryState, startPolling, stopPolling } = useTelemetry();
+
 // --- STATE ---
 const planId = ref(null);
 
@@ -29,18 +33,27 @@ const isRunning = ref(false);
 const isLanding = ref(false); 
 const currentStepIndex = ref(-1);
 
-// flightParams now includes the missionPad state controlled by FlightParametersCard
-const flightParams = reactive({
+const flightParams = reactive({ 
   altitude: 1,
   speed: 30, 
   mode: 'Stabilize',
   missionPad: false 
 });
 
-const telemetry = reactive({
-  gps: 'Weak',
-  battery: 0,
-  batteryColor: 'bg-red-500'
+// We keep a local wrapper around the global state to format it for the ControlPanel
+const formattedTelemetry = computed(() => {
+  let color = 'bg-red-500';
+  if (telemetryState.battery >= 50) {
+    color = 'bg-green-500';
+  } else if (telemetryState.battery >= 20) {
+    color = 'bg-yellow-500';
+  }
+
+  return {
+    gps: telemetryState.connected ? 'Online' : 'Offline',
+    battery: telemetryState.battery || 0,
+    batteryColor: color
+  };
 });
 
 const showCompleteModal = ref(false);
@@ -53,7 +66,6 @@ const modalConfig = reactive({
 });
 
 // --- COMMAND OPTIONS ---
-// Removed 'Enable Mission Pad' ('mon') since it's now a global flight parameter toggle
 const commandOptions = [
   { label: 'Fly Up',      value: 'up',      unit: 'cm', icon: UpIcon },
   { label: 'Fly Down',    value: 'down',    unit: 'cm', icon: DownIcon },
@@ -83,6 +95,9 @@ const decorateStep = (stepDto) => {
 // --- Load active plan on mount ---
 onMounted(async () => {
   try {
+    // START GLOBAL HARDWARE POLLING
+    startPolling();
+
      const plan = await missionApi.getActive();
      planId.value = plan.id;
 
@@ -158,6 +173,7 @@ const handleReorderCommand = async ({ from, to }) => {
 };
 
 // --- RUN + POLL STATUS ---
+// This poll only manages the active mission steps
 let statusPoll = null;
 
 const stopStatusPoll = () => {
@@ -256,6 +272,9 @@ const handleEmergencyCutoff = async () => {
 onBeforeUnmount(() => {
   stopStatusPoll();
   clearTimeout(fpTimer);
+  
+  // STOP GLOBAL HARDWARE POLLING
+  stopPolling();
 });
 </script>
 
@@ -267,7 +286,7 @@ onBeforeUnmount(() => {
     <div class="absolute inset-0 bg-black/40 z-0"></div>
 
     <div class="z-20 relative">
-      <DashboardNavBar :activePage="'mission-planner'" :droneStatus="telemetry.gps"/>
+      <DashboardNavBar :activePage="'mission-planner'" :droneStatus="formattedTelemetry.gps"/>
     </div>
 
     <div class="flex-1 z-10 p-6 overflow-y-auto relative">
@@ -295,7 +314,7 @@ onBeforeUnmount(() => {
             :hasMission="missionQueue.length > 0"
             :isRunning="isRunning"
             :isLanding="isLanding" 
-            :telemetry="telemetry"
+            :telemetry="formattedTelemetry"
             @run="handleRunMission"
             @force-land="handleEmergencyLand"
             @stop-hover="handleStopHover"
