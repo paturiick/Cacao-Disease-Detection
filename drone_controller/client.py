@@ -16,8 +16,6 @@ class TelloClient:
         self.addr = (tello_ip, CMD_PORT)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        self.sock.settimeout(7.0)
-
         self.sock.bind(("", LOCAL_CMD_PORT))
         self.sock.settimeout(CMD_TIMEOUT_S)
 

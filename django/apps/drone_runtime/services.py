@@ -1,107 +1,91 @@
-import threading
+from apps.detections.inference import start_inference_loop
 import time
-from drone_controller.main import DroneBrain
 from django.views.decorators.csrf import csrf_exempt
+from drone_controller.instance import (
+    get_drone_client, 
+    get_video_receiver, 
+    get_telemetry_receiver, 
+    get_mission_executor
+)
 
-_lock = threading.Lock()
-_inited = False
-
-_brain: DroneBrain | None = None
-
-def ensure_runtime():
-    global _inited, _brain
-    with _lock:
-        if _inited:
-            return
-        _brain = DroneBrain()
-        _inited = True
-
-def get_brain() -> DroneBrain | None:
-    ensure_runtime()
-    return _brain
 
 def connect():
-    ensure_runtime()
     try:
-        # connect_and_initialize sends the "command" string to port 8889 [cite: 18, 42]
-        success = _brain.connect_and_initialize()
+        client = get_drone_client()
         
-        # Get status and provide a safe default for 'last_res'
-        client_status = _brain.client.status()
-        response_text = client_status.get("last_res")
+        reply = client.connect()  
         
-        if success:
-            # If success is True but last_res is empty, use a default 
+        if reply.ok:
+            get_telemetry_receiver().start()
+
+            start_inference_loop()
+            
             return {
                 "ok": True, 
-                "text": response_text if response_text else "Connected (OK)",
-                "ms": 0
+                "text": reply.text if reply.text else "SDK Mode Enabled",
+                "ms": reply.ms
             }
-        else:
-            return {
-                "ok": False, 
-                "text": f"Drone Offline: {response_text}" if response_text else "Failed to connect", 
-                "ms": 0
-            }
+        
+        return {
+            "ok": False, 
+            "text": f"Connection Failed: {reply.text}", 
+            "ms": reply.ms
+        }
             
     except Exception as e:
-        if _brain:
-            _brain.client._connected = False
         return {"ok": False, "text": f"System Error: {str(e)}", "ms": 0}
 
 def status() -> dict:
-    ensure_runtime()
-    if not _brain:
-        return {"connected": False, "text": "Not Initialized"}
-        
-    t = _brain.get_current_state()
-    v = {"video_last_pkt_bytes": _brain.video.last_packet_size()}
-    c = _brain.client.status()
+    """Aggregates health data from the client and video domains."""
+    client = get_drone_client()
+    video = get_video_receiver()
+    telemetry = get_telemetry_receiver()
     
-    last_update = t.get("updated_at")
+    # Check if telemetry is still alive
+    t_state = telemetry.get()
+    last_update = t_state.get("updated_at")
     is_alive = last_update and (time.time() - last_update < 3.0)
-            
-    if not is_alive:
-        _brain.client._connected = False  
-        c["connected"] = False            
     
-    return {**c, **v}
+    c_status = client.status()
+    if not is_alive:
+        # Update client connection state if telemetry heartbeats stop
+        client._connected = False
+        c_status["connected"] = False
+    
+    return {
+        **c_status, 
+        "video_last_frame_bytes": video.get_latest_frame_size() # New helper
+    }
 
 def telemetry() -> dict:
-    """Returns ONLY the flight telemetry."""
-    ensure_runtime()
-    if not _brain:
-        return {}
-    return _brain.get_current_state()
+    """Returns ONLY the flight telemetry from the shared receiver."""
+    return get_telemetry_receiver().get()
 
 def send(cmd: str):
-    ensure_runtime()
-    return _brain.client.send(cmd)
+    """Sends a raw command string through the shared client."""
+    return get_drone_client().send(cmd)
 
 def stream_on():
-    ensure_runtime()
-    return _brain.client.send("streamon")
+    return get_drone_client().send("streamon")
 
 def stream_off():
-    ensure_runtime()
-    return _brain.client.send("streamoff")
+    return get_drone_client().send("streamoff")
 
 def get_video_stream() -> bytes:
-    ensure_runtime()
-    if not _brain:
-        return b""
-    return _brain.get_video_stream()    
+    """Returns the latest decoded JPEG frame for the live app."""
+    return get_video_receiver().get_latest_frame()
 
 def run_mission(steps: list) -> dict:
-    """Passes a list of flight steps to the MissionExecutor."""
-    ensure_runtime()
+    """Passes steps to the singleton MissionExecutor."""
+    client = get_drone_client()
+    executor = get_mission_executor()
     
-    if not _brain or not getattr(_brain.client, '_connected', False):
+    if not client.status().get("connected"):
         return {"ok": False, "text": "Cannot start mission: Drone is disconnected."}
         
     try:
-        result = _brain.run_flight_plan(steps)
-        
+        # Passes flight plan to the executor logic
+        result = executor.run(steps, ensure_stream=False)
         return {
             "ok": True, 
             "text": "Mission execution started", 
@@ -111,19 +95,15 @@ def run_mission(steps: list) -> dict:
         return {"ok": False, "text": f"Mission failed to start: {str(e)}"}
     
 def get_mission_progress() -> dict:
-    brain = get_brain()
+    """Queries the singleton executor for the current state."""
+    client = get_drone_client()
+    executor = get_mission_executor()
     
-    if not brain:
-        return {"status": "inactive", "active_index": -1, "message": "Hardware controller not initialized."}
-        
-    state = brain.mission_executor.state
-    is_connected = getattr(brain.client, '_connected', False)
-
-    if state["status"] == "running" and not is_connected:
+    state = executor.state
+    if state["status"] == "running" and not client.status().get("connected"):
         state["status"] = "failed"
-        state["message"] = "Drone disconnected or shut down during mission."
-        state["active_index"] = -1
-        brain.mission_executor.cancel() # Kills the background thread
+        state["message"] = "Drone disconnected during mission."
+        executor.cancel()
 
     return {
         "status": state["status"],             
