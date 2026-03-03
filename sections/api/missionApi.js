@@ -18,6 +18,7 @@ export const missionApi = {
   getActive: () => jfetch('/api/missions/active/'),
   patchPlan: (planId, payload) => jfetch(`/api/missions/${planId}/`, { method: 'PATCH', body: JSON.stringify(payload) }),
   addStep: (planId, payload) => jfetch(`/api/missions/${planId}/steps/`, { method: 'POST', body: JSON.stringify(payload) }),
+  patchStep: (stepId, payload) => jfetch(`/api/missions/steps/${stepId}/`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deleteStep: (stepId) => jfetch(`/api/missions/steps/${stepId}/`, { method: 'DELETE' }),
   clearSteps: (planId) => jfetch(`/api/missions/${planId}/steps/clear/`, { method: 'POST' }),
 

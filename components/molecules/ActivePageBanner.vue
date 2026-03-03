@@ -6,14 +6,13 @@ defineProps({
 </script>
 
 <template>
-  <div 
-    class="relative flex items-center justify-center text-white px-6 py-3 rounded-md shadow w-full max-w-md select-none"
+  <div
+    class="inline-flex items-center gap-2 text-white px-5 py-2 rounded-lg shadow-sm select-none"
     :class="colorClass"
   >
-    <div class="absolute left-6 w-6 h-6 flex items-center justify-center invert mix-blend-screen">
+    <div class="w-4 h-4 flex items-center justify-center invert mix-blend-screen shrink-0">
       <slot name="icon"></slot>
     </div>
-    
-    <span class="font-medium text-lg font-poppins">{{ label }}</span>
+    <span class="font-semibold text-sm font-poppins tracking-wide">{{ label }}</span>
   </div>
 </template>

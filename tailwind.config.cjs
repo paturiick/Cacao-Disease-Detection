@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: [
     "./components/**/*.{js,vue,ts}",
     "./sections/**/*.{js,vue,ts}",
@@ -11,8 +11,11 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        'poppins': ['Poppins', 'cursive', 'bold', 'semibold'],
-        'inter': ['Inter', 'serif', 'bold', 'semibold'],
+        // Open Sans is now the project-wide font; legacy class names also resolve to it
+        'sans':       ['"Open Sans"', 'sans-serif'],
+        'open-sans':  ['"Open Sans"', 'sans-serif'],
+        'inter':      ['"Open Sans"', 'sans-serif'],
+        'poppins':    ['"Open Sans"', 'sans-serif'],
       },
       colors: {
         'background': '#E4EDD2',
@@ -24,4 +27,3 @@ export default {
   },
   plugins: [],
 }
-

@@ -39,11 +39,11 @@ const logout = () => navigateTo('/login');
 </script>
 
 <template>
-  <header class="w-full bg-white shadow-md px-6 py-3 flex items-center justify-between z-50 relative">
-    
-    <NavBarBranding 
-      :connectionStatus="currentDroneStatus" 
-      @click="logout" 
+  <header class="w-full bg-white/95 backdrop-blur-md border-b border-gray-200 px-6 flex items-center justify-between z-50 relative h-16 shadow-sm">
+
+    <NavBarBranding
+      :connectionStatus="currentDroneStatus"
+      @click="logout"
     />
 
     <div class="flex-1 flex justify-center mx-4">
@@ -54,14 +54,12 @@ const logout = () => navigateTo('/login');
       </ActivePageBanner>
     </div>
 
-    <div class="flex items-center space-x-3">
-  
-
-      <NavCircleButton 
-        v-for="page in navigationLinks" 
-        :key="page.path" 
-        :label="page.label" 
-        :color-class="page.color" 
+    <div class="flex items-center gap-2">
+      <NavCircleButton
+        v-for="page in navigationLinks"
+        :key="page.path"
+        :label="page.label"
+        :color-class="page.color"
         @click="goTo(page.path)"
       >
         <template #icon>
