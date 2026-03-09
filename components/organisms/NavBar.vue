@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useDrone } from '~/sections/api/statusApi.js'; 
 
 import NavBarBranding from '~/components/molecules/NavBarBranding.vue';
@@ -36,6 +36,48 @@ const navigationLinks = computed(() => Object.values(pages).filter(p => p.label 
 
 const goTo = (path) => navigateTo(path);
 const logout = () => navigateTo('/login'); 
+
+// --- NEW: Sync Timeout Logic ---
+const syncMessage = ref('');
+const isError = ref(false);
+
+const handleSync = async () => {
+  if (isConnecting.value) return;
+  
+  syncMessage.value = '';
+  isError.value = false;
+  let didTimeout = false;
+
+  // 1. Start a 10-second timeout timer
+  const timeoutTimer = setTimeout(() => {
+    didTimeout = true;
+    isError.value = true;
+    syncMessage.value = 'Cannot sync with the drone (Timeout).';
+    
+    // Clear message after 5 seconds
+    setTimeout(() => { syncMessage.value = ''; }, 5000);
+  }, 10000);
+
+  // 2. Attempt the actual connection
+  await connectDrone();
+  
+  // 3. If it finishes before 10 seconds, clear the timer
+  clearTimeout(timeoutTimer);
+
+  // 4. Determine success/fail if it didn't timeout
+  if (!didTimeout) {
+    if (isConnected.value) {
+      isError.value = false;
+      syncMessage.value = 'Synced successfully!';
+    } else {
+      isError.value = true;
+      syncMessage.value = 'Cannot sync with the drone.';
+    }
+    
+    // Clear message after 5 seconds
+    setTimeout(() => { syncMessage.value = ''; }, 5000);
+  }
+};
 </script>
 
 <template>
@@ -54,8 +96,34 @@ const logout = () => navigateTo('/login');
       </ActivePageBanner>
     </div>
 
-    <div class="flex items-center space-x-3">
-  
+    <div class="flex items-center space-x-4">
+      
+      <span 
+        v-if="syncMessage" 
+        class="text-xs font-bold transition-opacity" 
+        :class="isError ? 'text-red-500' : 'text-emerald-500'"
+      >
+        {{ syncMessage }}
+      </span>
+
+      <button 
+        @click="handleSync"
+        :disabled="isConnecting"
+        class="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-full border border-slate-700 hover:bg-slate-700 transition-all shadow-sm disabled:opacity-50"
+      >
+        <svg 
+          class="w-4 h-4" 
+          :class="{'animate-spin text-[#658D1B]': isConnecting}" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        {{ isConnecting ? 'Syncing...' : 'Sync Drone' }}
+      </button>
+
+      <div class="h-8 w-px bg-gray-200"></div>
 
       <NavCircleButton 
         v-for="page in navigationLinks" 
@@ -68,6 +136,7 @@ const logout = () => navigateTo('/login');
           <component :is="iconComponents[page.iconKey]" />
         </template>
       </NavCircleButton>
+      
     </div>
-  </header>
+  </header> 
 </template>

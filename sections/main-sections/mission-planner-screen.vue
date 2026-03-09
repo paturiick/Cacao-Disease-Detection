@@ -172,6 +172,28 @@ const handleReorderCommand = async ({ from, to }) => {
   missionQueue.value.splice(to, 0, movedItem);
 };
 
+// NEW: Edit Command Handler
+const handleEditCommand = async ({ index, type, val }) => {
+  const step = missionQueue.value[index];
+  if (!step || !planId.value) return;
+
+  // Optimistically update the local UI array instantly
+  step.type = type;
+  step.val = val;
+  
+  // Re-run decorateStep to update the icon and label based on the new type
+  missionQueue.value.splice(index, 1, decorateStep(step));
+
+  try {
+    // Tell Django to update the step in the database
+    if (missionApi.updateStep) {
+      await missionApi.updateStep(step.id, { type: type, val: val });
+    }
+  } catch (error) {
+    console.error("Failed to update step in database:", error);
+  }
+};
+
 // --- RUN + POLL STATUS ---
 // This poll only manages the active mission steps
 let statusPoll = null;
@@ -225,7 +247,11 @@ const handleRunMission = async () => {
   try {
       const res = await missionApi.run();
       if (!res.ok) {
-          alert("Mission failed to start: " + res.text);
+          modalConfig.title = "Mission Failed to Start";
+          modalConfig.message = res.message || "An error occurred while starting the mission.";
+          modalConfig.isWarning = true;
+          modalConfig.cancelText = 'Close';
+          showCompleteModal.value = true;
           isRunning.value = false;
           return;
       }
@@ -303,9 +329,11 @@ onBeforeUnmount(() => {
             :isRunning="isRunning"
             :activeIndex="currentStepIndex"
             :flightParams="flightParams"
+            :commandOptions="commandOptions"
             @remove="handleRemoveCommand"
             @clear="handleClear"
             @reorder="handleReorderCommand" 
+            @edit="handleEditCommand"
           />
         </div>
 
