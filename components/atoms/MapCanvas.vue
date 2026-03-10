@@ -1,54 +1,128 @@
 <script setup>
-import { computed } from 'vue';
+import { ref, onMounted, watch, onUnmounted } from 'vue';
 
-const bgImage = "url('https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg')"; 
+// 1. KEEP the CSS import (Nuxt handles CSS fine on the server)
+import 'leaflet/dist/leaflet.css';
+
+// 2. REMOVE the static Leaflet import.
+// DO NOT do this: import L from 'leaflet'; 
 
 const props = defineProps({
-  heading: { type: Number, default: 0 },
   lat: { type: Number, default: 0 },
   lng: { type: Number, default: 0 },
-  zoom: { type: Number, default: 18 } // Accepts the zoom value from LiveMapCard
+  heading: { type: Number, default: 0 },
+  zoom: { type: Number, default: 18 },
+  trees: { type: Array, default: () => [] }
 });
 
-// 1. Dynamic Background Scaling
-// Divides the zoom prop by a baseline (e.g., 10) to create a CSS scale multiplier.
-const mapBgStyle = computed(() => ({
-  backgroundImage: bgImage,
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  transform: `scale(${Math.max(1, props.zoom / 10)})`, 
-  transition: 'transform 0.3s ease-out'
-}));
+const mapContainer = ref(null);
+let map = null;
+let droneMarker = null;
+let L = null; // We will store the Leaflet library here once it loads
 
-// 2. Drone Rotation Logic
-// Rotates the SVG based on the drone's actual compass heading.
-const markerStyle = computed(() => ({
-  transform: `translate(-50%, -50%) rotate(${props.heading}deg)`,
-  transformOrigin: 'center center'
-}));
+onMounted(async () => {
+  L = (await import('leaflet')).default;
+
+  // Center the map on your first cacao tree since we know where that is
+  const startLat = props.trees[0]?.lat || 8.499;
+  const startLng = props.trees[0]?.lng || 124.310;
+
+  map = L.map(mapContainer.value, {
+    zoomControl: false 
+  }).setView([startLat, startLng], props.zoom);
+
+  L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+    maxZoom: 22,
+    attribution: '© Google'
+  }).addTo(map);
+
+  // Draw the trees
+  if (props.trees.length > 0) {
+    props.trees.forEach(tree => {
+      // Create the solid green dot and add a hover tooltip
+      L.circleMarker([tree.lat, tree.lng], {
+        radius: 4,
+        color: '#10B981',
+        fillColor: '#10B981',
+        fillOpacity: 1
+      })
+      .bindTooltip(
+        `<div class="font-inter text-xs">
+          <strong>Tree ID:</strong> ${tree.id || 'N/A'}<br>
+          <strong>Lat:</strong> ${tree.lat.toFixed(6)}<br>
+          <strong>Lng:</strong> ${tree.lng.toFixed(6)}
+         </div>`, 
+        { 
+          direction: 'top', // Position the tooltip above the dot
+          offset: [0, -5],  // Shift it slightly up so it doesn't cover the dot
+          opacity: 0.9,     // Make it slightly transparent
+          className: 'custom-tree-tooltip' // Optional class for custom CSS
+        }
+      )
+      .addTo(map);
+
+      // Create the accuracy radius
+      L.circle([tree.lat, tree.lng], {
+        radius: tree.accuracy,
+        color: '#34D399',
+        weight: 1,
+        fillColor: '#34D399',
+        fillOpacity: 0.2
+      }).addTo(map);
+    });
+  }
+
+  // ONLY draw the drone if we have REAL coordinates (not 0)
+  if (props.lat !== 0 && props.lng !== 0) {
+    droneMarker = L.circleMarker([props.lat, props.lng], {
+      radius: 6, color: '#EF4444', fillColor: '#EF4444', fillOpacity: 1
+    }).addTo(map);
+  }
+});
+
+// --- Watch for Drone Movement ---
+watch(() => [props.lat, props.lng], ([newLat, newLng]) => {
+  // Only update or create the marker if the coordinates are not 0
+  if (newLat !== 0 && newLng !== 0) {
+    if (droneMarker) {
+      droneMarker.setLatLng([newLat, newLng]);
+    } else if (map && L) {
+      // Create it the very first time the drone gets a GPS lock!
+      droneMarker = L.circleMarker([newLat, newLng], {
+        radius: 6, color: '#EF4444', fillColor: '#EF4444', fillOpacity: 1
+      }).addTo(map);
+    }
+  }
+});
+
+// --- Watchers for Reactivity ---
+
+watch(() => [props.lat, props.lng], ([newLat, newLng]) => {
+  if (newLat && newLng) {
+    if (droneMarker) {
+      droneMarker.setLatLng([newLat, newLng]);
+    } else if (map && L) {
+      // If marker didn't exist, create it (making sure L is loaded)
+      droneMarker = L.circleMarker([newLat, newLng], {
+        radius: 6, color: '#EF4444', fillColor: '#EF4444', fillOpacity: 1
+      }).addTo(map);
+    }
+  }
+});
+
+watch(() => props.zoom, (newZoom) => {
+  if (map) {
+    map.setZoom(newZoom);
+  }
+});
+
+onUnmounted(() => {
+  if (map) {
+    map.remove();
+  }
+});
 </script>
 
 <template>
-  <div class="relative w-full h-full bg-slate-200 overflow-hidden rounded-lg flex items-center justify-center">
-    
-    <div 
-      class="absolute inset-0 opacity-50 origin-center"
-      :style="mapBgStyle"
-    ></div>
-
-    <div class="absolute inset-0 border border-gray-300/30 grid grid-cols-4 grid-rows-4 pointer-events-none z-0"></div>
-
-    <div 
-      class="absolute top-1/2 left-1/2 w-10 h-10 text-blue-600 transition-transform duration-300 ease-out z-10"
-      :style="markerStyle"
-    >
-      <svg fill="currentColor" viewBox="0 0 24 24" class="drop-shadow-md">
-        <path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z" />
-      </svg>
-    </div>
-
-    <div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded shadow-sm text-xs font-mono text-gray-700 z-20">
-      Loc: {{ lat.toFixed(6) }}, {{ lng.toFixed(6) }}
-    </div>
-  </div>
+  <div ref="mapContainer" class="w-full h-full z-0"></div>
 </template>
