@@ -35,7 +35,7 @@ const handleToggle = async () => {
 </script>
 
 <template>
-  <div class="rounded-xl shadow-2xl flex flex-col w-full h-full bg-[#0F172A] border border-slate-700/60 overflow-hidden relative">
+  <div class="rounded-xl shadow-2xl flex flex-col w-full h-full bg-whit bg-[#0F172A] border border-slate-700/60 overflow-hidden relative">
     
     <div class="flex justify-between items-center px-5 py-4 bg-slate-900/50 border-b border-slate-700/60 shrink-0">
       <h3 class="font-bold text-slate-200 text-sm flex items-center gap-2 uppercase tracking-wide">
