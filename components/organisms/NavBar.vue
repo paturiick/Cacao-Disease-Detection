@@ -11,8 +11,10 @@ import IconWifi from '~/components/atoms/IconWifi.vue';
 import IconMap from '~/components/atoms/IconMap.vue';
 import IconReport from '~/components/atoms/IconReport.vue';
 
+// --- CHANGED: Added `battery` prop ---
 const props = defineProps({
-  activePage: { type: String, required: true }
+  activePage: { type: String, required: true },
+  battery: { type: Number, default: null } 
 });
 
 const { isConnected, isConnecting, connectDrone } = useDrone();
@@ -37,7 +39,6 @@ const navigationLinks = computed(() => Object.values(pages).filter(p => p.label 
 const goTo = (path) => navigateTo(path);
 const logout = () => navigateTo('/login'); 
 
-// --- NEW: Sync Timeout Logic ---
 const syncMessage = ref('');
 const isError = ref(false);
 
@@ -48,23 +49,17 @@ const handleSync = async () => {
   isError.value = false;
   let didTimeout = false;
 
-  // 1. Start a 10-second timeout timer
   const timeoutTimer = setTimeout(() => {
     didTimeout = true;
     isError.value = true;
     syncMessage.value = 'Cannot sync with the drone (Timeout).';
-    
-    // Clear message after 5 seconds
     setTimeout(() => { syncMessage.value = ''; }, 5000);
   }, 10000);
 
-  // 2. Attempt the actual connection
   await connectDrone();
   
-  // 3. If it finishes before 10 seconds, clear the timer
   clearTimeout(timeoutTimer);
 
-  // 4. Determine success/fail if it didn't timeout
   if (!didTimeout) {
     if (isConnected.value) {
       isError.value = false;
@@ -73,8 +68,6 @@ const handleSync = async () => {
       isError.value = true;
       syncMessage.value = 'Cannot sync with the drone.';
     }
-    
-    // Clear message after 5 seconds
     setTimeout(() => { syncMessage.value = ''; }, 5000);
   }
 };
@@ -85,6 +78,7 @@ const handleSync = async () => {
     
     <NavBarBranding 
       :connectionStatus="currentDroneStatus" 
+      :battery="battery"
       @click="logout" 
     />
 

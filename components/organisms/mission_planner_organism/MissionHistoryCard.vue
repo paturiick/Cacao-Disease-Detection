@@ -2,14 +2,18 @@
 import { ref, reactive, computed } from 'vue';
 import BaseCard from '~/components/atoms/BaseCard.vue';
 import SectionHeader from '~/components/atoms/SectionHeader.vue';
+
+// IMPORT MODETOGGLE
+import ModeToggle from '~/components/molecules/mission_plan_molecules/ModeToggle.vue';
+
 import MissionListEmpty from '~/components/molecules/mission_plan_molecules/MissionListEmpty.vue';
 import MissionListItem from '~/components/molecules/mission_plan_molecules/MissionListItem.vue';
 import MissionStatusBadge from '~/components/molecules/mission_plan_molecules/MissionStatusBadge.vue';
 import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
 
-// Added commandOptions to props, and 'edit' to emits
-const props = defineProps(['queue', 'isRunning', 'activeIndex', 'flightParams', 'commandOptions']);
-const emit = defineEmits(['remove', 'clear', 'reorder', 'edit']);
+// Added isDrawingMode to props and update emit
+const props = defineProps(['queue', 'isRunning', 'activeIndex', 'flightParams', 'commandOptions', 'isDrawingMode']);
+const emit = defineEmits(['remove', 'clear', 'reorder', 'edit', 'update:isDrawingMode']);
 
 // Modal State Management
 const showModal = ref(false);
@@ -156,22 +160,23 @@ const saveEdit = () => {
 <template>
   <BaseCard class="h-full flex flex-col bg-white/95 backdrop-blur-sm relative">
     
-    <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-4">
-      <SectionHeader class="!mb-0">
-        <template #icon>
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-        </template>
-        Flight Plan
-      </SectionHeader>
-      
-      <div class="flex gap-2 items-center">
+    <div class="flex items-center justify-between mb-4 border-b border-gray-100 pb-4 px-2">
+
+      <div class="flex justify-center">
+        <ModeToggle 
+          :modelValue="isDrawingMode" 
+          @update:modelValue="$emit('update:isDrawingMode', $event)" 
+        />
+      </div>
+
+      <div class="flex-1 flex justify-end items-center gap-3">
          <MissionStatusBadge :isActive="isRunning" />
          
          <button 
            v-if="queue.length > 0" 
            @click="handleClearAttempt" 
-           class="text-xs font-medium transition-colors"
-           :class="isRunning ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:text-red-700 underline'"
+           class="text-[10px] font-bold text-red-500 hover:text-red-700 underline uppercase tracking-tighter"
+           :class="isRunning ? 'text-gray-300 cursor-not-allowed' : ''"
          >
            Clear
          </button>
