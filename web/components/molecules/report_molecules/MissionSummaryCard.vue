@@ -29,16 +29,6 @@ defineProps({
       </div>
     </section>
 
-<<<<<<< HEAD:web/components/molecules/report_molecules/MissionSummaryCard.vue
-    <div class="grid grid-cols-2 gap-6">
-      <DataLabelValue label="Mission ID" :value="data.id" />
-      <DataLabelValue label="Duration" :value="data.duration">
-      </DataLabelValue>
-      <DataLabelValue label="Start Time" :value="data.startTime" />
-      <DataLabelValue label="End Time" :value="data.endTime" />
-    </div>
-  </BaseCard>
-=======
     <section class="flex flex-col h-[400px] print:h-auto print:block">
       <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Geotagged Database</h3>
       <div class="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden print:shadow-none print:border-slate-300 print:rounded-none">
@@ -61,5 +51,4 @@ defineProps({
     </section>
 
   </div>
->>>>>>> origin/main:components/molecules/report_molecules/MissionSummaryCard.vue
 </template>
