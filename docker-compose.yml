@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: cacao_db_container
+    env_file:
+      - ./django/.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./django  
+    container_name: cacao_backend_container
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./django:/app
+      - ./drone_controller:/app/drone_controller
+    depends_on:
+      - db
+  
+  frontend:
+    build: ./web
+    container_name: cacao_frontend_container
+    ports:
+      - "3000:3000"    
+      - "24678:24678" 
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+      - /app/.nuxt
+    depends_on:
+      - backend
+
+volumes:
+  postgis_data:
