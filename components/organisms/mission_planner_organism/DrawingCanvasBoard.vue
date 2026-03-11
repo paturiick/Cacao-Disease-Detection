@@ -1,76 +1,131 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 
-const emit = defineEmits(['command-generated']);
+const props = defineProps({ initialLines: { type: Array, default: () => [] } });
+const emit = defineEmits(['update-path']);
 
+const canvasRef = ref(null);
+const lines = ref([]); 
 const isDrawing = ref(false);
-const lines = ref([]);
-const currentLine = ref(null);
-const PIXELS_PER_METER = 50; 
+const startPt = ref(null);
+const currentPt = ref(null);
 
-const startDrawing = (e) => {
-  isDrawing.value = true;
-  currentLine.value = { x1: e.offsetX, y1: e.offsetY, x2: e.offsetX, y2: e.offsetY };
-};
+// Sync lines from manual mode
+watch(() => props.initialLines, (newVal) => {
+  lines.value = [...newVal];
+  draw();
+}, { deep: true });
 
-const draw = (e) => {
-  if (!isDrawing.value) return;
-  currentLine.value.x2 = e.offsetX;
-  currentLine.value.y2 = e.offsetY;
-};
+const draw = () => {
+  const canvas = canvasRef.value;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-const stopDrawing = () => {
-  if (!isDrawing.value) return;
-  isDrawing.value = false;
-  
-  const line = { ...currentLine.value };
-  lines.value.push(line);
-  
-  const deltaX = line.x2 - line.x1;
-  const deltaY = line.y2 - line.y1;
-  
-  const meters = (Math.sqrt(deltaX * deltaX + deltaY * deltaY) / PIXELS_PER_METER).toFixed(1);
-  let degrees = Math.atan2(deltaY, deltaX) * (180 / Math.PI) + 90;
-  if (degrees < 0) degrees += 360;
-  
-  emit('command-generated', {
-    id: Date.now(),
-    type: 'MOVE',
-    distance: Number(meters),
-    degrees: Math.round(degrees)
+  // Draw Grid
+  ctx.strokeStyle = '#f1f5f9';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < canvas.width; i += 20) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+  }
+
+  // Draw Lines
+  ctx.strokeStyle = '#40623F';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  lines.value.forEach(line => {
+    ctx.beginPath();
+    ctx.moveTo(line.x1, line.y1);
+    ctx.lineTo(line.x2, line.y2);
+    ctx.stroke();
   });
-  
-  currentLine.value = null;
+
+  // Draw Ortho Preview (Dashed)
+  if (isDrawing.value && startPt.value && currentPt.value) {
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(startPt.value.x, startPt.value.y);
+    ctx.lineTo(currentPt.value.x, currentPt.value.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 };
+
+const getMousePos = (evt) => {
+  const rect = canvasRef.value.getBoundingClientRect();
+  return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+};
+
+const startDraw = (e) => {
+  // Continuous Drawing: Start at the end of the last line if it exists
+  startPt.value = lines.value.length > 0 
+    ? { x: lines.value[lines.value.length - 1].x2, y: lines.value[lines.value.length - 1].y2 } 
+    : getMousePos(e);
+  isDrawing.value = true;
+};
+
+const drawMove = (e) => {
+  if (!isDrawing.value) return;
+  const pos = getMousePos(e);
+  
+  // ORTHO LOGIC: Snap to largest displacement
+  const dx = Math.abs(pos.x - startPt.value.x);
+  const dy = Math.abs(pos.y - startPt.value.y);
+  
+  if (dx > dy) currentPt.value = { x: pos.x, y: startPt.value.y }; // Horizontal
+  else currentPt.value = { x: startPt.value.x, y: pos.y }; // Vertical
+  draw();
+};
+
+const endDraw = () => {
+  if (!isDrawing.value || !currentPt.value) return;
+  
+  // Prevent zero-length dots
+  if (startPt.value.x !== currentPt.value.x || startPt.value.y !== currentPt.value.y) {
+    lines.value.push({
+      x1: startPt.value.x, y1: startPt.value.y,
+      x2: currentPt.value.x, y2: currentPt.value.y
+    });
+    emit('update-path', lines.value);
+  }
+  isDrawing.value = false;
+  currentPt.value = null;
+  draw();
+};
+
+const undo = () => {
+  if (lines.value.length === 0) return;
+  lines.value.pop();
+  emit('update-path', lines.value);
+  draw();
+};
+
+onMounted(() => draw());
 </script>
 
 <template>
-  <div class="canvas-container">
-    <div class="tree-grid">
-      <div v-for="i in 9" :key="i" class="tree-cell">🌲</div>
-    </div>
-    <svg 
-      class="drawing-layer"
-      @mousedown="startDrawing" @mousemove="draw"
-      @mouseup="stopDrawing" @mouseleave="stopDrawing"
+  <div class="relative w-full aspect-video border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+    <canvas
+      ref="canvasRef"
+      width="600"
+      height="400"
+      class="w-full h-full cursor-crosshair"
+      @mousedown="startDraw"
+      @mousemove="drawMove"
+      @mouseup="endDraw"
+      @mouseleave="endDraw"
+    ></canvas>
+    
+    <button 
+      @click="undo" 
+      :disabled="lines.length === 0"
+      class="absolute bottom-3 right-3 bg-white border border-gray-200 shadow-sm rounded px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-[#40623F] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors z-10"
     >
-      <line v-for="(line, idx) in lines" :key="idx"
-        :x1="line.x1" :y1="line.y1" :x2="line.x2" :y2="line.y2"
-        stroke="#40623F" stroke-width="6" stroke-linecap="round" />
-      <line v-if="currentLine"
-        :x1="currentLine.x1" :y1="currentLine.y1" :x2="currentLine.x2" :y2="currentLine.y2"
-        stroke="#88B04B" stroke-width="6" stroke-dasharray="8,8" stroke-linecap="round" />
-    </svg>
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+      Undo
+    </button>
   </div>
 </template>
-
-<style scoped>
-.canvas-container {
-  position: relative; width: 450px; height: 450px;
-  background: #E4EDD2; border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-.tree-grid { display: grid; grid-template-columns: repeat(3, 1fr); height: 100%; }
-.tree-cell { display: flex; align-items: center; justify-content: center; font-size: 2.5rem; border: 1px dashed rgba(64,98,63,0.1); opacity: 0.7; }
-.drawing-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; }
-</style>

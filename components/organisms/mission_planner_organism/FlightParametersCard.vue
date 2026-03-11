@@ -17,7 +17,7 @@ defineEmits(['update:modelValue']);
     <div class="grid grid-cols-2 gap-4 mt-4">
       <LabeledInput v-model="modelValue.altitude" label="Altitude (m)" type="number" />
       <LabeledInput v-model="modelValue.speed" label="Speed (cm/s)" type="number" />
-      <LabeledInput v-model="modelValue.mode" label="Flight Mode" class="col-span-2" />
+      <LabeledInput v-model="modelValue.mode" label="Flight Mode" class="col-span-2 " readonly/>
       
       <div class="col-span-2 flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg mt-2">
         <div class="flex flex-col">

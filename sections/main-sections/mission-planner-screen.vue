@@ -12,6 +12,9 @@ import LeftIcon from '~/assets/icons/Left.svg';
 import RightIcon from '~/assets/icons/Right.svg';
 import ForwardIcon from '~/assets/icons/Forward.svg';
 import BackwardIcon from '~/assets/icons/Backward.svg';
+import ClockwiseIcon from '~/assets/icons/Clockwise.svg';
+import CounterClockwiseIcon from '~/assets/icons/Counter-clockwise.svg';
+import HoverIcon from '~/assets/icons/Hover.svg';
 
 // Molecules
 import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
@@ -31,8 +34,8 @@ const isLanding = ref(false);
 const currentStepIndex = ref(-1);
 
 const flightParams = reactive({ 
-  altitude: 1,
-  speed: 30, 
+  altitude: 2,
+  speed: 30,
   mode: 'Stabilize',
   missionPad: false 
 });
@@ -69,9 +72,9 @@ const commandOptions = [
   { label: 'Fly Right',   value: 'right',   unit: 'cm', icon: RightIcon },
   { label: 'Fly Forward', value: 'forward', unit: 'cm', icon: ForwardIcon },
   { label: 'Fly Back',    value: 'back',    unit: 'cm', icon: BackwardIcon },
-  { label: 'Rotate CW',   value: 'cw',      unit: 'deg', icon: `<svg class="w-6 h-6" ...` },
-  { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: `<svg class="w-6 h-6" ...` },
-  { label: 'Hover',       value: 'hover',   unit: 's',   icon: `<svg class="w-6 h-6" ...` },
+  { label: 'Rotate CW',   value: 'cw',      unit: 'deg', icon: ClockwiseIcon},
+  { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: CounterClockwiseIcon},
+  { label: 'Hover',       value: 'hover',   unit: 's',   icon: HoverIcon },
   { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z spd', icon: `<svg class="w-6 h-6" ...` }
 ];
 

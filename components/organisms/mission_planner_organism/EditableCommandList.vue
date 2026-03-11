@@ -18,15 +18,17 @@ const handleRemove = (index) => {
 </script>
 
 <template>
-  <div class="command-list-card">
-    <h3>Drawn Commands</h3>
-    <p v-if="!commands.length" class="empty">Draw a path on the grid to begin.</p>
-    <div class="list-scroll">
-      <CommandRow 
-        v-for="(cmd, index) in commands" :key="cmd.id"
-        :command="cmd" :index="index"
-        @update-command="handleUpdate"
-        @remove-command="handleRemove"
+  <div class="space-y-3">
+    <div v-for="(item, idx) in queue" :key="item.id" 
+      class="relative group"
+      @dblclick="$emit('edit', idx)"
+    >
+      <MissionListItem 
+        :index="idx" 
+        v-bind="item" 
+        :isActive="activeIndex === idx + 1" 
+        :isRunning="isRunning" 
+        @remove="$emit('remove', idx)" 
       />
     </div>
   </div>

@@ -3,17 +3,76 @@ import { ref, reactive, computed } from 'vue';
 import BaseCard from '~/components/atoms/BaseCard.vue';
 import SectionHeader from '~/components/atoms/SectionHeader.vue';
 
-// IMPORT MODETOGGLE
-import ModeToggle from '~/components/molecules/mission_plan_molecules/ModeToggle.vue';
-
 import MissionListEmpty from '~/components/molecules/mission_plan_molecules/MissionListEmpty.vue';
 import MissionListItem from '~/components/molecules/mission_plan_molecules/MissionListItem.vue';
 import MissionStatusBadge from '~/components/molecules/mission_plan_molecules/MissionStatusBadge.vue';
 import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
 
-// Added isDrawingMode to props and update emit
-const props = defineProps(['queue', 'isRunning', 'activeIndex', 'flightParams', 'commandOptions', 'isDrawingMode']);
-const emit = defineEmits(['remove', 'clear', 'reorder', 'edit', 'update:isDrawingMode']);
+// IMPORT DRAWING CANVAS ORGANISM
+import DrawingCanvasBoard from '~/components/organisms/mission_planner_organism/DrawingCanvasBoard.vue';
+
+// Added drawnCommands to props and sync-drawn-commands to emit
+const props = defineProps(['queue', 'isRunning', 'activeIndex', 'flightParams', 'commandOptions', 'isDrawingMode', 'drawnCommands']);
+const emit = defineEmits(['remove', 'clear', 'reorder', 'edit', 'update:isDrawingMode', 'sync-drawn-commands']);
+
+// --- TWO-WAY CONVERSION LOGIC ---
+const canvasLines = ref([]);
+
+const convertQueueToLines = (queue) => {
+  let x = 300; // Center X of 600px canvas
+  let y = 200; // Center Y of 400px canvas
+  let lines = [];
+  
+  queue.forEach(cmd => {
+    let val = Number(cmd.val) || 0;
+    if (val === 0) return;
+    let nx = x, ny = y;
+    
+    // Y-axis: Forward is Up (-Y), Back is Down (+Y)
+    // X-axis: Right is (+X), Left is (-X)
+    if (cmd.type === 'forward') ny -= val;
+    else if (cmd.type === 'back') ny += val;
+    else if (cmd.type === 'left') nx -= val;
+    else if (cmd.type === 'right') nx += val;
+    else return; // Ignore Z-axis (up/down/hover) for 2D map
+    
+    lines.push({ x1: x, y1: y, x2: nx, y2: ny });
+    x = nx; y = ny;
+  });
+  return lines;
+};
+
+const convertLinesToCommands = (lines) => {
+  let commands = [];
+  lines.forEach(line => {
+    let dx = Math.round(line.x2 - line.x1);
+    let dy = Math.round(line.y2 - line.y1);
+    
+    if (dx > 0) commands.push({ type: 'right', val: dx });
+    else if (dx < 0) commands.push({ type: 'left', val: Math.abs(dx) });
+    
+    if (dy > 0) commands.push({ type: 'back', val: dy });
+    else if (dy < 0) commands.push({ type: 'forward', val: Math.abs(dy) });
+  });
+  return commands;
+};
+
+const handleModeSwitch = (newMode) => {
+  emit('update:isDrawingMode', newMode);
+  
+  if (newMode) {
+    // Manual -> Drawing: Convert current list to canvas lines
+    canvasLines.value = convertQueueToLines(props.queue);
+  } else {
+    // Drawing -> Manual: Convert drawn lines back to list commands
+    const newCommands = convertLinesToCommands(canvasLines.value);
+    emit('sync-drawn-commands', newCommands);
+  }
+};
+
+const handleCanvasUpdate = (newLines) => {
+  canvasLines.value = newLines;
+};
 
 // Modal State Management
 const showModal = ref(false);
@@ -160,20 +219,43 @@ const saveEdit = () => {
 <template>
   <BaseCard class="h-full flex flex-col bg-white/95 backdrop-blur-sm relative">
     
-    <div class="flex items-center justify-between mb-4 border-b border-gray-100 pb-4 px-2">
+    <div class="flex items-center justify-between mb-4 border-b border-gray-100 pb-4 px-2 shrink-0">
+      
+      <div class="flex gap-4 items-center">
+        <button 
+          @click="handleModeSwitch(false)"
+          class="flex items-center gap-2 transition-all duration-200"
+          :class="!isDrawingMode ? 'text-[#0F2830] scale-105' : 'text-gray-400 hover:text-gray-600'"
+        >
+          <SectionHeader class="!mb-0" :class="{'opacity-50 font-normal': isDrawingMode}">
+            <template #icon>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+            </template>
+            Manual
+          </SectionHeader>
+        </button>
 
-      <div class="flex justify-center">
-        <ModeToggle 
-          :modelValue="isDrawingMode" 
-          @update:modelValue="$emit('update:isDrawingMode', $event)" 
-        />
+        <div class="w-px h-5 bg-gray-200"></div>
+
+        <button 
+          @click="handleModeSwitch(true)"
+          class="flex items-center gap-2 transition-all duration-200"
+          :class="isDrawingMode ? 'text-[#0F2830] scale-105' : 'text-gray-400 hover:text-gray-600'"
+        >
+          <SectionHeader class="!mb-0" :class="{'opacity-50 font-normal': !isDrawingMode}">
+            <template #icon>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+            </template>
+            Draw Directions
+          </SectionHeader>
+        </button>
       </div>
 
       <div class="flex-1 flex justify-end items-center gap-3">
          <MissionStatusBadge :isActive="isRunning" />
          
          <button 
-           v-if="queue.length > 0" 
+           v-if="queue.length > 0 || (isDrawingMode && canvasLines.length > 0)" 
            @click="handleClearAttempt" 
            class="text-[10px] font-bold text-red-500 hover:text-red-700 underline uppercase tracking-tighter"
            :class="isRunning ? 'text-gray-300 cursor-not-allowed' : ''"
@@ -185,61 +267,80 @@ const saveEdit = () => {
 
     <div class="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300">
       
-      <MissionListItem 
-        :isConfig="true" 
-        label="Initial Configuration" 
-        :isActive="activeIndex === 0" 
-        :isRunning="isRunning"
-      >
-        <template #details>
-           <div class="grid grid-cols-3 gap-2 text-xs mt-2">
-             <div class="bg-white rounded border border-gray-200 p-1 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Alt</span>{{ flightParams.altitude || 0 }}m</div>
-             <div class="bg-white rounded border border-gray-200 p-1 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Spd</span>{{ flightParams.speed || 0 }}m/s</div>
-             <div class="bg-white rounded border border-gray-200 p-1 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Mode</span>{{ flightParams.mode || '-' }}</div>
-           </div>
-        </template>
-      </MissionListItem>
-
-      <MissionListEmpty v-if="queue.length === 0" />
-
-      <div 
-        v-for="(item, idx) in queue" 
-        :key="item.id"
-        :draggable="!isRunning"
-        @dragstart="handleDragStart(idx, $event)"
-        @dragover="handleDragOver(idx, $event)"
-        @dragenter.prevent
-        @drop="handleDrop(idx, $event)"
-        @dragend="handleDragEnd"
-        @dblclick="openEditModal(idx)"
-        class="transition-all duration-200 ease-in-out relative group"
-        :title="!isRunning ? 'Drag to reorder, Double-click to edit' : ''"
-        :class="{
-          'cursor-grab active:cursor-grabbing': !isRunning,
-          'opacity-40 scale-[0.98]': draggedIndex === idx,
-          'border-t-2 border-[#658D1B] pt-2 mt-2': dragOverIndex === idx && draggedIndex !== idx && dragOverIndex < draggedIndex,
-          'border-b-2 border-[#658D1B] pb-2 mb-2': dragOverIndex === idx && draggedIndex !== idx && dragOverIndex > draggedIndex
-        }"
-      >
-        <button 
-          v-if="!isRunning" 
-          @click.stop="openEditModal(idx)" 
-          class="absolute -left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 z-10 bg-white border border-gray-200 text-[#658D1B] p-1.5 rounded-full shadow-md hover:bg-gray-50 transition-opacity"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-        </button>
-
+      <div v-show="!isDrawingMode" class="space-y-3">
         <MissionListItem 
-          :index="idx"
-          :label="item.label"
-          :value="item.val"
-          :unit="item.unit"
-          :icon="item.icon"
-          :isActive="activeIndex === idx + 1"
+          :isConfig="true" 
+          label="Initial Configuration" 
+          :isActive="activeIndex === 0" 
           :isRunning="isRunning"
-          @remove="$emit('remove', idx)"
-        />
+        >
+          <template #details>
+             <div class="grid grid-cols-3 gap-2 text-xs mt-2">
+               <div class="bg-white rounded border border-gray-200 p-1 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Alt</span>{{ flightParams.altitude || 0 }}m</div>
+               <div class="bg-white rounded border border-gray-200 p-1 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Spd</span>{{ flightParams.speed || 0 }}m/s</div>
+               <div class="bg-white rounded border border-gray-200 p-1 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Mode</span>{{ flightParams.mode || '-' }}</div>
+             </div>
+          </template>
+        </MissionListItem>
+
+        <MissionListEmpty v-if="queue.length === 0" />
+
+        <div 
+          v-for="(item, idx) in queue" 
+          :key="item.id"
+          :draggable="!isRunning"
+          @dragstart="handleDragStart(idx, $event)"
+          @dragover="handleDragOver(idx, $event)"
+          @dragenter.prevent
+          @drop="handleDrop(idx, $event)"
+          @dragend="handleDragEnd"
+          class="transition-all duration-200 ease-in-out relative group"
+          :class="{
+            'cursor-grab active:cursor-grabbing': !isRunning,
+            'opacity-40 scale-[0.98]': draggedIndex === idx,
+            'border-t-2 border-[#658D1B] pt-2 mt-2': dragOverIndex === idx && draggedIndex !== idx && dragOverIndex < draggedIndex,
+            'border-b-2 border-[#658D1B] pb-2 mb-2': dragOverIndex === idx && draggedIndex !== idx && dragOverIndex > draggedIndex
+          }"
+        >
+          <button 
+            v-if="!isRunning" 
+            @click.stop="openEditModal(idx)" 
+            class="absolute -left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 z-10 bg-white border border-gray-200 text-[#658D1B] p-1.5 rounded-full shadow-md hover:bg-gray-50 transition-opacity"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+          </button>
+
+          <MissionListItem 
+            :index="idx"
+            :label="item.label"
+            :value="item.val"
+            :unit="item.unit"
+            :icon="item.icon"
+            :isActive="activeIndex === idx + 1"
+            :isRunning="isRunning"
+            @remove="$emit('remove', idx)"
+          />
+        </div>
       </div>
+
+      <div v-show="isDrawingMode" class="space-y-4 pt-2">
+        <div class="flex justify-between items-center px-1">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ortho Drawing Mode</span>
+          <span class="text-[10px] font-bold text-[#658D1B] uppercase tracking-widest flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#658D1B] animate-pulse"></span> Auto-Snapping
+          </span>
+        </div>
+        
+        <DrawingCanvasBoard 
+          :initialLines="canvasLines" 
+          @update-path="handleCanvasUpdate" 
+        />
+        
+        <p class="text-[11px] text-gray-500 text-center px-4 mt-2">
+          Draw continuous paths on the grid. Click <b>Manual</b> to apply the commands to your flight plan.
+        </p>
+      </div>
+
     </div>
 
     <div v-if="showEditModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
