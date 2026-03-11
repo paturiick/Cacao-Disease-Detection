@@ -1,29 +1,56 @@
 <script setup>
-import BaseCard from '~/components/atoms/BaseCard.vue';
-import StatTile from '~/components/atoms/report/StatTile.vue';
-
-// Accepts placeholder object for flight stats
-defineProps({
-  stats: { type: Object, required: true }
+const props = defineProps({
+  mission: { type: Object, required: true }
 });
+
+const formatTime = (seconds) => {
+  if (!seconds) return '0m 0s';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${s}s`;
+};
 </script>
 
 <template>
-  <BaseCard>
-    <div class="mb-4">
-      <h3 class="font-bold text-gray-700 font-poppins text-sm">Flight Statistics</h3>
-    </div>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <StatTile label="Total Distance" :value="stats.distance" color-class="bg-blue-50 text-blue-900">
-        <template #icon><svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></template>
-      </StatTile>
+  <section>
+    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Flight Metrics</h3>
+    <div class="grid grid-cols-5 gap-3 print:grid-cols-5">
       
+<<<<<<< HEAD:web/components/molecules/report_molecules/FlightStatisticsCard.vue
       <StatTile label="Altitude" :value="stats.altitude" color-class="bg-green-50 text-green-900" />
       <StatTile label="Speed" :value="stats.speed" color-class="bg-purple-50 text-purple-900" />
       <StatTile label="Waypoints Completed" :value="stats.waypoints" color-class="bg-orange-50 text-orange-900" />
       <StatTile label="Photos" :value="stats.photos" color-class="bg-pink-50 text-pink-900" />
       <StatTile label="Battery" :value="stats.battery" color-class="bg-yellow-50 text-yellow-900" />
+=======
+      <div class="bg-white border border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center text-center shadow-sm print:shadow-none">
+        <span class="text-[9px] font-bold text-slate-400 uppercase mb-1">Flight Mode</span>
+        <span class="text-sm font-black text-[#658D1B] uppercase tracking-wide">{{ mission.mode }}</span>
+      </div>
+      
+      <div class="bg-white border border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center text-center shadow-sm print:shadow-none">
+        <span class="text-[9px] font-bold text-slate-400 uppercase mb-1">Air Time</span>
+        <span class="text-base font-black text-[#0F172A]">{{ formatTime(mission.telemetry?.flight_time) }}</span>
+      </div>
+      
+      <div class="bg-white border border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center text-center shadow-sm print:shadow-none">
+        <span class="text-[9px] font-bold text-slate-400 uppercase mb-1">Max Altitude</span>
+        <span class="text-base font-black text-[#0F172A]">{{ mission.telemetry?.max_altitude || 0 }} <span class="text-[10px] text-slate-400 font-normal">m</span></span>
+      </div>
+      
+      <div class="bg-white border border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center text-center shadow-sm print:shadow-none">
+        <span class="text-[9px] font-bold text-slate-400 uppercase mb-1">Target Speed</span>
+        <span class="text-base font-black text-[#0F172A]">{{ mission.speed || 0 }} <span class="text-[10px] text-slate-400 font-normal">cm/s</span></span>
+      </div>
+      
+      <div class="bg-white border border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center text-center shadow-sm print:shadow-none">
+        <span class="text-[9px] font-bold text-slate-400 uppercase mb-1">End Battery</span>
+        <span class="text-base font-black" :class="(mission.telemetry?.battery_end <= 30 && mission.telemetry?.battery_end > 0) ? 'text-[#C60C0C]' : 'text-[#0F172A]'">
+          {{ mission.telemetry?.battery_end || 0 }}<span class="text-[10px] font-normal">%</span>
+        </span>
+      </div>
+
+>>>>>>> origin/main:components/molecules/report_molecules/FlightStatisticsCard.vue
     </div>
-  </BaseCard>
+  </section>
 </template>

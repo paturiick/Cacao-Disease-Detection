@@ -9,10 +9,10 @@ defineEmits(['update:modelValue']);
 </script>
 
 <template>
-  <div class="flex items-center gap-3 bg-white px-4 py-1.5 rounded-full shadow-sm border border-gray-200 w-fit">
+  <div class="flex items-center gap-4 w-fit">
     <span 
-      class="text-sm font-bold transition-colors duration-300 cursor-pointer select-none" 
-      :class="!modelValue ? 'text-[#40623F]' : 'text-gray-500 hover:text-gray-700'"
+      class="text-[10px] font-bold transition-colors duration-300 cursor-pointer select-none uppercase tracking-widest" 
+      :class="!modelValue ? 'text-[#40623F]' : 'text-gray-400 hover:text-gray-600'"
       @click="$emit('update:modelValue', false)"
     >
       Manual
@@ -24,8 +24,8 @@ defineEmits(['update:modelValue']);
     />
     
     <span 
-      class="text-sm font-bold transition-colors duration-300 cursor-pointer select-none" 
-      :class="modelValue ? 'text-[#40623F]' : 'text-gray-500 hover:text-gray-700'"
+      class="text-[10px] font-bold transition-colors duration-300 cursor-pointer select-none uppercase tracking-widest" 
+      :class="modelValue ? 'text-[#40623F]' : 'text-gray-400 hover:text-gray-600'"
       @click="$emit('update:modelValue', true)"
     >
       Draw Directions
