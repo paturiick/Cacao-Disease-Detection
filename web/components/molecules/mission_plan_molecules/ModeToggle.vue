@@ -1,17 +1,14 @@
 <script setup>
 import ToggleSwitch from '~/components/atoms/ToggleSwitch.vue';
 
-defineProps({ 
-  modelValue: { type: Boolean, required: true } 
-});
-
+defineProps({ modelValue: { type: Boolean, required: true } });
 defineEmits(['update:modelValue']);
 </script>
 
 <template>
-  <div class="flex items-center gap-4 w-fit">
+  <div class="flex items-center gap-3">
     <span 
-      class="text-[10px] font-bold transition-colors duration-300 cursor-pointer select-none uppercase tracking-widest" 
+      class="text-[10px] font-bold cursor-pointer select-none uppercase tracking-widest transition-colors" 
       :class="!modelValue ? 'text-[#40623F]' : 'text-gray-400 hover:text-gray-600'"
       @click="$emit('update:modelValue', false)"
     >
@@ -24,7 +21,7 @@ defineEmits(['update:modelValue']);
     />
     
     <span 
-      class="text-[10px] font-bold transition-colors duration-300 cursor-pointer select-none uppercase tracking-widest" 
+      class="text-[10px] font-bold cursor-pointer select-none uppercase tracking-widest transition-colors" 
       :class="modelValue ? 'text-[#40623F]' : 'text-gray-400 hover:text-gray-600'"
       @click="$emit('update:modelValue', true)"
     >

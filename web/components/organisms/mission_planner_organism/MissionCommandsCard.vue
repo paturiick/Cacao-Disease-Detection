@@ -66,7 +66,7 @@ const handleAdd = () => {
 </script>
 
 <template>
-  <BaseCard class="bg-white/95 backdrop-blur-sm">
+  <BaseCard class="bg-white/95 backdrop-blur-sm flex flex-col max-h-[50vh]">
     <SectionHeader>
       <template #icon>
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -74,7 +74,7 @@ const handleAdd = () => {
       Add Command
     </SectionHeader>
 
-    <div class="mt-4 space-y-4">
+    <div class="mt-4 space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
       
       <div class="flex flex-col group">
         <label class="text-gray-600 text-sm font-medium mb-1.5">Command Type</label>
@@ -108,15 +108,16 @@ const handleAdd = () => {
         </div>
       </div>
 
-      <div v-if="errorMessage" class="bg-red-50 text-red-600 border border-red-200 p-3 rounded-md text-xs font-medium flex items-center gap-2 shadow-sm animate-pulse hover:animate-none transition-all">
-        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+      <div v-if="errorMessage" class="bg-red-50 text-red-600 border border-red-200 px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 shadow-sm animate-pulse hover:animate-none transition-all">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
         <span>{{ errorMessage }}</span>
       </div>
 
-      <div class="pt-2">
-        <Button @click="handleAdd" class="w-full bg-[#658D1B] hover:bg-[#557516] text-white font-bold py-3 rounded shadow-sm text-xs uppercase tracking-wide">+ Add Step</Button>
-      </div>
-      
     </div>
+
+    <div class="pt-4 mt-auto">
+      <Button @click="handleAdd" class="w-full bg-[#658D1B] hover:bg-[#557516] text-white font-bold py-3 rounded shadow-sm text-xs uppercase tracking-wide">+ Add Step</Button>
+    </div>
+      
   </BaseCard>
 </template>

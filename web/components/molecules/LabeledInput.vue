@@ -1,7 +1,7 @@
 <script setup>
 defineProps({
   modelValue: {
-    type: [String, Number],   // 👈 allow both
+    type: [String, Number],
     required: true
   },
   label: String,
@@ -9,7 +9,11 @@ defineProps({
     type: String,
     default: 'text'
   },
-  placeholder: String
+  placeholder: String,
+  readonly: {
+    type: Boolean,
+    default: false
+  }
 });
 </script>
 
@@ -25,7 +29,13 @@ defineProps({
       @input="$emit('update:modelValue', type === 'number' ? Number($event.target.value) : $event.target.value)"
       :type="type"
       :placeholder="placeholder"
+      :readonly="readonly"
       class="w-full border border-gray-300 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-[#658D1B] focus:ring-1 focus:ring-[#658D1B] transition placeholder-gray-400"
+      :class="[
+        readonly
+          ? 'bg-gray-50 text-gray-500 cursor-default border-gray-200 focus:ring-0' 
+          : 'bg-white focus:border-[#658D1B] focus:ring-1 focus:ring-[#658D1B]'
+      ]"
     />
   </div>
 </template>
