@@ -1,7 +1,9 @@
 # apps/detections/models.py
+import uuid
 from django.db import models
 
 class CacaoDetectionLog(models.Model):
+    session_id = models.CharField(max_length=100, default=uuid.uuid4, db_index=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     healthy_count = models.IntegerField(default=0)
     unhealthy_count = models.IntegerField(default=0)

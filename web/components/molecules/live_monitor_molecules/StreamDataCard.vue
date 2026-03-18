@@ -1,14 +1,52 @@
 <script setup>
+import { ref, watch, onUnmounted } from 'vue';
 import { useTelemetry } from "~/components/composables/useTelemetry"; 
+import { isStreamActive, activeSessionId } from '~/components/composables/droneStore';
 import BaseCard from '~/components/atoms/BaseCard.vue';
-// Note: You can safely remove the computed import since the global store handles speed now!
-
-const props = defineProps({
-  healthyCount: { type: Number, default: 0 },
-  diseasedCount: { type: Number, default: 0 }
-});
 
 const { telemetryState } = useTelemetry();
+
+// Local state to hold the live AI counts
+const healthyCount = ref(0);
+const diseasedCount = ref(0);
+
+let pollInterval = null;
+
+// The background worker that pings Django for the current session's counts
+const fetchSessionStats = async () => {
+  // Only ask for data if we actually have a session ID
+  if (!activeSessionId.value) return;
+  
+  try {
+    const response = await $fetch(`http://localhost:8000/detections/stats/?session_id=${activeSessionId.value}`);
+    
+    if (response) {
+      healthyCount.value = response.healthy_count || 0;
+      diseasedCount.value = response.unhealthy_count || 0;
+    }
+  } catch (error) {
+    // Only log errors if it's not a generic network timeout
+    console.error("Failed to fetch AI stats:", error);
+  }
+};
+
+// Watch the global stream state. 
+// If it turns ON, reset the numbers and start polling. If OFF, stop polling.
+watch(isStreamActive, (isActive) => {
+  if (isActive) {
+    healthyCount.value = 0;
+    diseasedCount.value = 0;
+    // Check for new pods every 2 seconds
+    pollInterval = setInterval(fetchSessionStats, 2000);
+  } else {
+    if (pollInterval) clearInterval(pollInterval);
+  }
+}, { immediate: true }); // immediate: true catches cases where the stream is already active on mount
+
+// Clean up the timer if the user leaves the page
+onUnmounted(() => {
+  if (pollInterval) clearInterval(pollInterval);
+});
 </script>
 
 <template>
@@ -136,4 +174,4 @@ const { telemetryState } = useTelemetry();
 
     </div>
   </BaseCard>
-</template> 
+</template>
