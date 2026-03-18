@@ -22,6 +22,7 @@ class VideoReceiver:
         
         self.cap = None
         self.thread = None
+        self.current_session_id = None
 
     def start(self):
         """Starts the background decoding thread instantly without blocking."""

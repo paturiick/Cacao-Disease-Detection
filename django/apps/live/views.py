@@ -1,6 +1,7 @@
 # apps/live/views.py
 import json
 import asyncio
+import uuid
 from django.http import StreamingHttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from drone_controller.instance import get_video_receiver, get_drone_client
@@ -47,6 +48,8 @@ def toggle_camera(request):
 
             if command == 'streamon':
                 client.send('streamon')
+
+
                 receiver.start()
                 return JsonResponse({"status": "success"})
             elif command == 'streamoff':

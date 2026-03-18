@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { liveApi } from '~/sections/api/liveApi';
-import { isStreamActive } from '~/components/composables/droneStore'; 
+import { isStreamActive, activeSessionId} from '~/components/composables/droneStore'; 
 
 const isLoading = ref(false);
 const streamTimestamp = ref(Date.now());
@@ -18,13 +18,18 @@ const handleToggle = async () => {
   const action = isStreamActive.value ? 'streamoff' : 'streamon';
   
   try {
-    await liveApi.toggleHardware(action);
+    const response = await liveApi.toggleHardware(action);
     
     if (action === 'streamon') {
       streamTimestamp.value = Date.now();
       isStreamActive.value = true; 
+      
+      if (response.session_id) {
+        activeSessionId.value = response.session_id;
+      }
     } else {
       isStreamActive.value = false; 
+      activeSessionId.value = null;
     }
   } catch (e) {
     console.error("Hardware Camera Toggle Failed:", e);

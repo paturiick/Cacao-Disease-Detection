@@ -66,9 +66,11 @@ def start_inference_loop():
 
                 # 5. Save stats to the database
                 current_time = time.time()
-                if (current_time - last_db_save_time) > SAVE_INTERVAL_SECONDS:
+                current_session = receiver.current_session_id
+                if current_session and (current_time - last_db_save_time) > SAVE_INTERVAL_SECONDS:
                     if healthy_count > 0 or unhealthy_count > 0:
                         CacaoDetectionLog.objects.create(
+                            session_id=current_session, 
                             healthy_count=healthy_count,
                             unhealthy_count=unhealthy_count
                         )

@@ -1,4 +1,7 @@
 import json
+import uuid
+
+from drone_controller.instance import get_video_receiver
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -96,3 +99,21 @@ def override_command_view(request):
 def mission_status_view(request):
     """Polled by Vue ONLY when a mission is running to update the progress bar."""
     return JsonResponse(services.get_mission_progress())
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def run_mission_view(request):
+    """Triggered when you click 'Run Mission' on the frontend."""
+    body = json.loads(request.body)
+    steps = body.get("steps", [])
+    speed = body.get("flightParams", {}).get("speed", 30)
+    
+    new_session_id = str(uuid.uuid4())
+    
+    receiver = get_video_receiver()
+    receiver.current_session_id = new_session_id
+    result = services.start_hardware_mission(steps, speed)    
+    result["session_id"] = new_session_id 
+    
+    return JsonResponse(result)
