@@ -28,8 +28,6 @@ const missionQueue = ref([]);
 const isRunning = ref(false);
 const isLanding = ref(false); 
 const currentStepIndex = ref(-1);
-
-// Tracks Drawing Mode state centrally
 const isDrawingMode = ref(false);
 
 const flightParams = reactive({ 
@@ -270,16 +268,12 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* THE "FOLD & BLUR" TRANSITION 
-  Uses scaleY and translateY to make the card feel like a physical panel 
-  retracting into the component above it.
-*/
 .card-fold-enter-active {
-  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); /* Slight spring bounce on entry */
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .card-fold-leave-active {
-  transition: all 0.4s cubic-bezier(0.36, 0, 0.66, -0.56); /* Acceleration on exit */
+  transition: all 0.4s cubic-bezier(0.36, 0, 0.66, -0.56);
 }
 
 .card-fold-enter-from,
@@ -287,19 +281,15 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: scaleY(0.8) translateY(-40px);
   filter: blur(10px);
-  flex-grow: 0.0001; /* Animates the flex container collapse without height math */
-  margin-top: -24px; /* Eliminates the gap-6 spacing smoothly */
+  flex-grow: 0.0001;
+  margin-top: -24px;
 }
 
-/* LAYOUT STABILITY
-  Ensures the middle column resizes at the exact same speed as the card animation
-*/
 .flex-1, .flex-\[2\.5\] {
   transition: flex 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: flex;
 }
 
-/* Prevents scrollbar flickering during the half-second animation */
 .overflow-hidden {
   scrollbar-width: none;
 }

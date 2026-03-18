@@ -16,7 +16,7 @@ class VideoReceiver:
         self._lock = threading.Lock()
         self._last_frame = b""
         
-        # FIX: Initialize current_detections here so the _run thread 
+        # Initialize current_detections here so the _run thread 
         # doesn't crash if it starts before the first AI update.
         self.current_detections = [] 
         
@@ -24,27 +24,19 @@ class VideoReceiver:
         self.thread = None
 
     def start(self):
-        """Opens the video capture and starts the background decoding thread."""
+        """Starts the background decoding thread instantly without blocking."""
         if self.thread and self.thread.is_alive():
             return  # Already running
             
         self._stop.clear()
         
-        # Initialize OpenCV VideoCapture for the UDP stream
-        video_url = f"udp://@0.0.0.0:{self.port}"
-        self.cap = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
-        
-        if not self.cap.isOpened():
-            print(f"[VIDEO] Error: Could not open stream on {video_url}")
-            return
-
-        # Create a fresh thread every time streamon is triggered
+        # The actual VideoCapture initialization is moved inside _run so this returns instantly
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
-        print(f"[VIDEO] Stream started. Decoding on port {self.port}")
+        print(f"[VIDEO] Thread started. Attempting to connect on port {self.port} in the background...")
 
     def stop(self):
-        """Kills the thread and releases the camera."""
+        """Kills the thread and cleans up memory."""
         print("[VIDEO] Stopping stream...")
         self._stop.set()
         
@@ -53,17 +45,10 @@ class VideoReceiver:
             self.thread.join(timeout=2.0)
             self.thread = None
             
-        # Explicitly release OpenCV so the port is freed for the next connection
-        if self.cap:
-            self.cap.release()
-            self.cap = None
-            
         # Clear the old frame and detections from memory
         with self._lock:
             self._last_frame = b""
             self.current_detections = []
-            
-        print("[VIDEO] Port freed successfully.")
 
     def update_detections(self, detections: list):
         """Called by the AI thread to update what we should draw."""
@@ -71,42 +56,62 @@ class VideoReceiver:
             self.current_detections = detections
 
     def _run(self):
-        """Main loop that captures frames, paints AI boxes, and encodes to JPEG."""
-        while not self._stop.is_set():
-            if not self.cap or not self.cap.isOpened():
-                break
-                
-            success, frame = self.cap.read()
-            if success:
-                # --- PAINTING LAYER ---
-                with self._lock:
-                    # Iterates through detections provided by the inference loop
-                    for det in self.current_detections:
-                        try:
-                            x1, y1, x2, y2 = det['box']
-                            label = det['label']
-                            
-                            # Green for healthy, Red for diseased
-                            color = (0, 255, 0) if "healthy" in label.lower() else (0, 0, 255)
-                            
-                            # Draw the Bounding Box
-                            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                            # Draw the Label
-                            cv2.putText(frame, label, (x1, y1 - 10), 
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-                        except (KeyError, TypeError):
-                            # Skip malformed detections
-                            continue
+        """Main loop that connects to the stream, captures frames, paints AI boxes, and encodes to JPEG."""
+        
+        # Connect to OpenCV in the background thread
+        video_url = f"udp://@0.0.0.0:{self.port}?reuse=1"
+        self.cap = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
+        
+        if not self.cap.isOpened():
+            print(f"[VIDEO] Error: Could not open stream on {video_url}")
+            return
+            
+        print("[VIDEO] Successfully connected to drone stream!")
 
-                # Compress the annotated frame into a standard JPEG image
-                ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-                if ret:
+        try:
+            while not self._stop.is_set():
+                if not self.cap or not self.cap.isOpened():
+                    break
+                    
+                success, frame = self.cap.read()
+                if success:
+                    # --- PAINTING LAYER ---
                     with self._lock:
-                        # Store the actual bytes for the MJPEG stream to work in views.py
-                        self._last_frame = buffer.tobytes()
-            else:
-                # If we drop a frame, wait a tiny bit to prevent CPU spiking
-                time.sleep(0.01)
+                        # Iterates through detections provided by the inference loop
+                        for det in self.current_detections:
+                            try:
+                                # FIX: Cast coordinates to integers to prevent OpenCV TypeError
+                                x1, y1, x2, y2 = map(int, det['box'])
+                                label = det['label']
+                                
+                                # Check 'unhealthy' first because the string 'healthy' is in 'unhealthy'
+                                # Red for diseased, Green for healthy
+                                color = (0, 0, 255) if "unhealthy" in label.lower() else (0, 255, 0)
+                                
+                                # Draw the Bounding Box
+                                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                                # Draw the Label
+                                cv2.putText(frame, label, (x1, y1 - 10), 
+                                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                            except (KeyError, TypeError, ValueError):
+                                # Skip malformed detections
+                                continue
+
+                    # Compress the annotated frame into a standard JPEG image
+                    ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                    if ret:
+                        with self._lock:
+                            # Store the actual bytes for the MJPEG stream to work in views.py
+                            self._last_frame = buffer.tobytes()
+                else:
+                    # If we drop a frame, wait a tiny bit to prevent CPU spiking
+                    time.sleep(0.01)
+        finally:
+            # FIX: Thread-safe cleanup. The thread releases the camera itself before dying.
+            if self.cap:
+                self.cap.release()
+                self.cap = None
+            print("[VIDEO] Port freed successfully.")
 
     def get_latest_frame(self) -> bytes:
         """

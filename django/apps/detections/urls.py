@@ -1,5 +1,7 @@
+# apps/detections/urls.py
 from django.urls import path
 from . import views
+
 urlpatterns = [
-    path("ping/", views.ping),
+    path('stats/', views.get_detection_stats, name='detection-stats'),
 ]
