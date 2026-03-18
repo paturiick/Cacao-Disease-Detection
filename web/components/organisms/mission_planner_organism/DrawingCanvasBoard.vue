@@ -73,7 +73,7 @@ for (let r = 1; r <= 3; r++) {
   }
 }
 
-const INITIAL_START_PT = { x: 50, y: 150 };
+const INITIAL_START_PT = { x: 50, y: 100 };
 
 watch(() => props.initialLines, (newVal) => {
   lines.value = [...newVal];
