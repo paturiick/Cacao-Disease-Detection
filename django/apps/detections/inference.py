@@ -1,79 +1,82 @@
 # apps/detections/inference.py
 import os
-import sys
 import threading
 import time
 import cv2
 import numpy as np
-import importlib.metadata
-from dotenv import load_dotenv
-from inference_sdk import InferenceHTTPClient
+from ultralytics import YOLO
 from drone_controller.instance import get_video_receiver
+from .models import CacaoDetectionLog
 
-# =====================================================================
-# DIAGNOSTIC SNIFFER: This will print to your terminal when the file loads
-# =====================================================================
-print("\n" + "="*60)
-print(f"[DIAGNOSTICS] Python Executable Path: {sys.executable}")
-try:
-    sdk_version = importlib.metadata.version('inference-sdk')
-    print(f"[DIAGNOSTICS] inference-sdk Version: {sdk_version}")
-except Exception as e:
-    print(f"[DIAGNOSTICS] Could not find inference-sdk version: {e}")
-print("="*60 + "\n")
-# =====================================================================
+MODEL_PATH = "/app/models/best.pt"
+if not os.path.exists(MODEL_PATH):
+    MODEL_PATH = os.path.join(os.getcwd(), "models", "best.pt")
 
-load_dotenv()
-
-client = InferenceHTTPClient.init(
-    api_url="https://serverless.roboflow.com",
-    api_key=os.getenv("ROBOFLOW_API_KEY")
-)
+model = YOLO(MODEL_PATH)
 
 def start_inference_loop():
     receiver = get_video_receiver()
-    
-    # Combined path: "workspace/workflow"
-    full_workflow_path = "cacao-i3ehv/wf1" 
 
     def loop():
-        print(f"[AI] Starting Workflow Inference: {full_workflow_path}...")
+        print(f"[AI] Starting Inference with: {MODEL_PATH}...")
+        last_db_save_time = time.time()
+        SAVE_INTERVAL_SECONDS = 3.0 
+
         while True:
+            # 1. Grab the raw JPEG bytes from live.py
             frame_bytes = receiver.get_latest_frame()
             if not frame_bytes:
-                time.sleep(0.5)
+                time.sleep(0.1)
                 continue
 
+            # 2. Decode for the AI
             nparr = np.frombuffer(frame_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
+            if img is None:
+                continue
+
             try:
-                # Passing strictly as positional arguments (no keywords) 
-                # to guarantee it doesn't trigger the old SDK error
-                result = client.infer_from_workflow(
-                    full_workflow_path,
-                    {"image": img}
-                )
+                # 3. Run YOLO (No painting needed here!)
+                results = model(img, verbose=False, conf=0.25, device=0)
                 
+                healthy_count = 0
+                unhealthy_count = 0
                 new_detections = []
-                workflow_output = result[0] if isinstance(result, list) else result
-                predictions = workflow_output.get('predictions', [])
 
-                for pred in predictions:
-                    x, y, w, h = pred['x'], pred['y'], pred['width'], pred['height']
-                    x1, y1 = int(x - w/2), int(y - h/2)
-                    x2, y2 = int(x + w/2), int(y + h/2)
-                    
-                    new_detections.append({
-                        "box": [x1, y1, x2, y2],
-                        "label": f"{pred['class']} ({int(pred['confidence']*100)}%)"
-                    })
+                for result in results:
+                    for box in result.boxes:
+                        coords = box.xyxy[0].tolist()
+                        conf = float(box.conf[0])
+                        cls = int(box.cls[0])
+                        label_name = model.names[cls].lower()
 
+                        if "unhealthy" in label_name:
+                            unhealthy_count += 1
+                        elif "healthy" in label_name:
+                            healthy_count += 1
+
+                        new_detections.append({
+                            "box": map(int, coords),
+                            "label": f"{label_name} ({int(conf*100)}%)"
+                        })
+
+                # 4. Send the coordinates to live.py so IT can draw them
                 receiver.update_detections(new_detections)
 
+                # 5. Save stats to the database
+                current_time = time.time()
+                if (current_time - last_db_save_time) > SAVE_INTERVAL_SECONDS:
+                    if healthy_count > 0 or unhealthy_count > 0:
+                        CacaoDetectionLog.objects.create(
+                            healthy_count=healthy_count,
+                            unhealthy_count=unhealthy_count
+                        )
+                    last_db_save_time = current_time
+
             except Exception as e:
-                print(f"[AI] Workflow Error: {e}")
+                print(f"[AI] Inference Error: {e}")
             
-            time.sleep(0.2)
+            time.sleep(0.05) 
 
     threading.Thread(target=loop, daemon=True).start()

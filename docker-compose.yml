@@ -8,17 +8,35 @@ services:
       - "5432:5432"
     volumes:
       - postgis_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cacao_user -d cacao_db"] 
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: ./django  
     container_name: cacao_backend_container
+    env_file:
+      - ./django/.env
     ports:
       - "8000:8000"
+      - "11111:11111/udp"
+      - "8889:8889/udp"
+      - "8890:8890/udp"
     volumes:
       - ./django:/app
       - ./drone_controller:/app/drone_controller
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0'] 
+              capabilities: [gpu]
   
   frontend:
     build: ./web
