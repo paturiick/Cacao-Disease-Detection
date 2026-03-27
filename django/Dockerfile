@@ -18,15 +18,16 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
-# 3. Install the rest of your specific project dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 4. Copy the rest of the Django project
 COPY . .
 
-# Expose the default Django port
+# Expose the default Django port and Tello UDP ports
 EXPOSE 8000
+EXPOSE 8889/udp
+EXPOSE 8890/udp
+EXPOSE 11111/udp
 
-# Run the development server
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000", "--noreload"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
