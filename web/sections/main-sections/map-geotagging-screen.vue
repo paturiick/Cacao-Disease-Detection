@@ -79,7 +79,7 @@ onUnmounted(() => {
     <div class="absolute inset-0 bg-black/60 z-0"></div>
     
     <div class="z-20 relative">
-      <DashboardNavBar active-page="map-geotagging" :droneStatus="signalStatus" />
+      <DashboardNavBar active-page="map-geotagging" :droneStatus="signalStatus" :battery="telemetryState.battery"/>
     </div>
 
     <div class="flex-1 z-10 p-6 overflow-hidden relative">

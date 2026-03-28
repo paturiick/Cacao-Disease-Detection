@@ -61,37 +61,6 @@ const calculatedSpeed = computed(() => {
                :style="{ width: `${data.battery ?? 0}%` }">
           </div>
         </div>
-
-        <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
-          <p class="text-[9px] font-bold text-slate-400 uppercase">Pitch</p>
-          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.pitch ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">°</span></p>
-        </div>
-
-        <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
-          <p class="text-[9px] font-bold text-slate-400 uppercase">Roll</p>
-          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.roll ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">°</span></p>
-        </div>
-
-        <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
-          <p class="text-[9px] font-bold text-slate-400 uppercase">Yaw</p>
-          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.yaw ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">°</span></p>
-        </div>
-
-        <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
-          <p class="text-[9px] font-bold text-slate-400 uppercase">ToF Dist</p>
-          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.tof ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">cm</span></p>
-        </div>
-
-        <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
-          <p class="text-[9px] font-bold text-slate-400 uppercase">Temp</p>
-          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.temp ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">°C</span></p>
-        </div>
-
-        <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
-          <p class="text-[9px] font-bold text-slate-400 uppercase">Air Time</p>
-          <p class="text-lg font-black text-[#3E2723] leading-none mt-1">{{ data.flight_time ?? 0 }}<span class="text-xs text-slate-500 ml-0.5">s</span></p>
-        </div>
-
       </div>
 
       <hr class="border-slate-100 my-1" />
