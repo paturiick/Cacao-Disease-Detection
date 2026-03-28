@@ -30,6 +30,8 @@ const isLanding = ref(false);
 const currentStepIndex = ref(-1);
 const isDrawingMode = ref(false);
 
+const currentMode = ref('plan'); 
+
 const flightParams = reactive({ 
   altitude: 2,
   speed: 30,
@@ -51,6 +53,10 @@ const formattedTelemetry = computed(() => {
   };
 });
 
+const isFlying = computed(() => {
+  return telemetryState.connected && (telemetryState.alt > 0);
+});
+
 const showCompleteModal = ref(false);
 const modalConfig = reactive({
   title: '', message: '', isWarning: false, isSuccess: false, cancelText: 'Close'
@@ -66,7 +72,8 @@ const commandOptions = [
   { label: 'Rotate CW',   value: 'cw',      unit: 'deg', icon: ClockwiseIcon},
   { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: CounterClockwiseIcon},
   { label: 'Hover',       value: 'hover',   unit: 's',   icon: HoverIcon },
-  { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z spd', icon: `<svg...` }
+  { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z', icon: `<svg...` },
+  { label: 'RC Override', value: 'rc', unit: 'a b c d', icon: HoverIcon }
 ];
 
 const decorateStep = (stepDto) => {
@@ -199,6 +206,25 @@ const handleEmergencyLand = async () => {
   try { await missionApi.forceLand(); } catch (e) {} finally { setTimeout(() => { isLanding.value = false; }, 2000); }
 };
 
+const handleLiveRcCommand = async (rcData) => {
+  try {
+    const rcString = `${rcData.a} ${rcData.b} ${rcData.c} ${rcData.d}`;
+    await missionApi.start([{ command: 'rc', value: rcString }]);
+  } catch (error) {
+    console.error("RC transmission failed", error);
+  }
+};
+
+const handleTakeoff = async () => {
+  try { await missionApi.start([{ command: 'takeoff', value: null }]); } 
+  catch (e) { console.error("Takeoff failed", e); }
+};
+
+const handleLand = async () => {
+  try { await missionApi.start([{ command: 'land', value: null }]); } 
+  catch (e) { console.error("Land failed", e); }
+};
+
 onBeforeUnmount(() => {
   stopStatusPoll();
   clearTimeout(fpTimer);
@@ -217,7 +243,7 @@ onBeforeUnmount(() => {
     <div class="flex-1 z-10 p-6 overflow-hidden relative">
       <div class="flex flex-col xl:flex-row gap-6 h-full max-w-[1800px] mx-auto transition-all duration-700">
 
-        <div class="w-full xl:w-80 flex flex-col gap-6 shrink-0 h-full">
+        <div v-show="currentMode === 'plan'" class="w-full xl:w-80 flex flex-col gap-6 shrink-0 h-full transition-all duration-500">
           <FlightParametersCard v-model="flightParams" />
           
           <Transition name="card-fold">
@@ -228,7 +254,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="flex flex-col h-full min-h-0 transition-all duration-700 ease-in-out"
-             :class="isDrawingMode ? 'flex-[2.5]' : 'flex-1'">
+             :class="(isDrawingMode || currentMode === 'rc') ? 'flex-[2.5]' : 'flex-1'">
           <MissionHistoryCard
             :queue="missionQueue"
             :isRunning="isRunning"
@@ -236,17 +262,23 @@ onBeforeUnmount(() => {
             :flightParams="flightParams"
             :commandOptions="commandOptions"
             :isDrawingMode="isDrawingMode"
+            :mode="currentMode"
+            @update:mode="currentMode = $event"
             @mode-change="isDrawingMode = $event"
             @remove="handleRemoveCommand"
             @clear="handleClear"
             @reorder="handleReorderCommand" 
             @edit="handleEditCommand"
             @sync-drawn-commands="handleSyncDrawnCommands"
+            @send-rc="handleLiveRcCommand"
+            @save-to-plan="(rc) => handleAddCommand({ type: 'rc', val: `${rc.a} ${rc.b} ${rc.c} ${rc.d}` })"
           />
         </div>
 
         <div class="w-full xl:w-96 flex flex-col gap-6 shrink-0 h-full">
+          
           <ControlPanel
+            v-show="currentMode === 'plan'"
             :hasMission="missionQueue.length > 0"
             :isRunning="isRunning"
             :isLanding="isLanding" 
@@ -254,6 +286,46 @@ onBeforeUnmount(() => {
             @run="handleRunMission"
             @force-land="handleEmergencyLand"
           />
+
+          <div v-show="currentMode === 'rc'" class="bg-slate-50 rounded-xl border border-slate-200 shadow-sm p-4 w-full flex flex-col shrink-0">
+            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2 mb-3">
+              <svg class="w-4 h-4 text-[#658D1B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              RC Flight Control
+            </h3>
+            
+            <div class="flex gap-3 w-full mb-3">
+              <button 
+                @click="handleTakeoff"
+                :disabled="isFlying"
+                class="flex-1 py-3 rounded-lg font-bold text-sm tracking-wide uppercase transition-colors flex justify-center items-center gap-2"
+                :class="isFlying ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-[#658D1B] hover:bg-[#557516] text-white shadow-md'"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                Takeoff
+              </button>
+              
+              <button 
+                @click="handleLand"
+                :disabled="!isFlying"
+                class="flex-1 py-3 rounded-lg font-bold text-sm tracking-wide uppercase transition-colors flex justify-center items-center gap-2"
+                :class="!isFlying ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-slate-800 hover:bg-slate-900 text-white shadow-md'"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                Land
+              </button>
+            </div>
+
+            <button 
+              @click="handleEmergencyLand" 
+              :disabled="!isFlying"
+              class="w-full py-3 rounded-lg font-bold text-sm tracking-wide uppercase transition-colors flex justify-center items-center gap-2"
+              :class="!isFlying ? 'bg-red-100 text-red-300 cursor-not-allowed shadow-none' : 'bg-red-600 hover:bg-red-700 text-white shadow-md'"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+              Emergency Land
+            </button>
+          </div>
+
         </div>
 
       </div>
@@ -271,11 +343,9 @@ onBeforeUnmount(() => {
 .card-fold-enter-active {
   transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-
 .card-fold-leave-active {
   transition: all 0.4s cubic-bezier(0.36, 0, 0.66, -0.56);
 }
-
 .card-fold-enter-from,
 .card-fold-leave-to {
   opacity: 0;
@@ -284,12 +354,10 @@ onBeforeUnmount(() => {
   flex-grow: 0.0001;
   margin-top: -24px;
 }
-
 .flex-1, .flex-\[2\.5\] {
   transition: flex 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: flex;
 }
-
 .overflow-hidden {
   scrollbar-width: none;
 }
