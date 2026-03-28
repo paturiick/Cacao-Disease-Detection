@@ -4,7 +4,8 @@ import { computed, ref, watch } from 'vue';
 const props = defineProps({
   queue: { type: Array, default: () => [] },
   activeIndex: { type: Number, default: -1 },
-  isRunning: { type: Boolean, default: false }
+  isRunning: { type: Boolean, default: false },
+  mode: { type: String, default: 'plan' } 
 });
 
 // --- SCALE SETTINGS ---
@@ -114,6 +115,19 @@ const visualData = computed(() => {
       y += (localX * Math.sin(rad)) - (localY * Math.cos(rad)); 
       labelPrefix = 'GO'; val = cmd.val;
     } 
+    // NEW: Handle the 5th parameter for the RC Command
+    else if (cmd.type === 'rc') {
+      const parts = String(cmd.val).split(' ');
+      const a = parts[0] || 0;
+      const b = parts[1] || 0;
+      const c = parts[2] || 0;
+      const d = parts[3] || 0;
+      const duration = parts[4] || 1; // Extract the 5th parameter for the label
+      
+      labelPrefix = 'RC';
+      val = `[${a}, ${b}, ${c}, ${d}]`;
+      unit = ` for ${duration}s`;
+    }
     else if (cmd.type === 'cw') { currentYaw += val; unit = '°'; } 
     else if (cmd.type === 'ccw') { currentYaw -= val; unit = '°'; } 
     else {
@@ -126,6 +140,7 @@ const visualData = computed(() => {
 
     let labelText = labelPrefix;
     if (cmd.type === 'go') labelText = `GO ${cmd.val}`;
+    else if (cmd.type === 'rc') labelText = `${labelPrefix} ${val}${unit}`;
     else if (val || unit) labelText = `${labelPrefix} ${val}${unit}`.trim();
     if (['takeoff', 'land', 'stop', 'hover'].includes(cmd.type)) labelText = cmd.type.toUpperCase();
 
@@ -233,7 +248,7 @@ const getOpacity = (segId) => {
       </div>
     </div>
 
-    <div class="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-md px-3 py-2 rounded-full border border-slate-200 shadow-sm flex items-center gap-2 pointer-events-none">
+    <div v-if="props.mode !== 'rc'" class="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-md px-3 py-2 rounded-full border border-slate-200 shadow-sm flex items-center gap-2 pointer-events-none">
        <span class="relative flex h-2 w-2">
          <span v-if="props.isRunning" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#658D1B] opacity-75"></span>
          <span class="relative inline-flex rounded-full h-2 w-2" :class="props.isRunning ? 'bg-[#658D1B]' : 'bg-slate-400'"></span>
