@@ -9,7 +9,8 @@ import MissionStatusBadge from '~/components/molecules/mission_plan_molecules/Mi
 import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
 
 import VisualBoard from '~/components/organisms/mission_planner_organism/VisualBoard.vue';
-import RemoteControlPanel from '~/components/organisms/mission_planner_organism/RemoteControlPanel.vue';
+// COMMENTED OUT: RC Panel
+// import RemoteControlPanel from '~/components/organisms/mission_planner_organism/RemoteControlPanel.vue';
 
 const props = defineProps({
   queue: { type: Array, default: () => [] },
@@ -55,7 +56,6 @@ const editIndex = ref(-1);
 const editForm = reactive({ type: '', val: '' });
 const editGoParams = reactive({ x: 0, y: 0, z: 0 });
 
-// NEW: Duration added to edit params
 const editRcParams = reactive({ a: 0, b: 0, c: 0, d: 0, duration: 1 });
 
 const currentEditCmdDetails = computed(() => props.commandOptions?.find(c => c.value === editForm.type) || { unit: '' });
@@ -73,13 +73,13 @@ const openEditModal = (idx) => {
     editGoParams.y = parseInt(parts[1]) || 0; 
     editGoParams.z = parseInt(parts[2]) || 0; 
   } 
+  // Keep the RC data parser so existing RC commands don't crash the edit modal
   else if (item.type === 'rc') {
     const parts = String(item.val).split(' ');
     editRcParams.a = parseInt(parts[0]) || 0;
     editRcParams.b = parseInt(parts[1]) || 0;
     editRcParams.c = parseInt(parts[2]) || 0;
     editRcParams.d = parseInt(parts[3]) || 0;
-    // Extract the 5th parameter if it exists, default to 1
     editRcParams.duration = parseInt(parts[4]) || 1; 
   }
   else { 
@@ -103,7 +103,6 @@ const saveEdit = () => {
     const { a, b, c, d, duration } = editRcParams;
     if ([a, b, c, d].some(val => val < -100 || val > 100)) { editErrorMessage.value = "Safety Error: All RC forces must be between -100 and 100."; return; }
     if (duration <= 0) { editErrorMessage.value = "Safety Error: Duration must be at least 1 second."; return; }
-    // Save all 5 parameters
     finalVal = `${a} ${b} ${c} ${d} ${duration}`;
   }
   else if (!editForm.val) { editErrorMessage.value = "Please enter a valid duration or value."; return; }
@@ -118,23 +117,21 @@ const saveEdit = () => {
     
     <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-4 shrink-0 px-2 pt-2">
       <div class="flex items-center gap-4">
-        <div class="bg-slate-100 p-1 rounded-lg flex gap-1 shadow-inner">
-          <button @click="$emit('update:mode', 'plan')" class="px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all" :class="props.mode === 'plan' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'">Mission Plan</button>
-          <button @click="$emit('update:mode', 'rc')" class="px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all" :class="props.mode === 'rc' ? 'bg-white text-[#658D1B] shadow-sm' : 'text-slate-400 hover:text-slate-600'">Live RC</button>
-        </div>
+        <span class="text-sm font-bold text-slate-800 uppercase tracking-widest px-2">Mission History</span>
       </div>
       
       <div class="flex gap-3 items-center">
          <MissionStatusBadge :isActive="props.isRunning" />
-         <button v-if="props.mode === 'plan' && props.queue.length > 0" @click="handleClearAttempt" class="text-[10px] font-bold transition-colors uppercase tracking-tighter underline" :class="props.isRunning ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:text-red-700'">Clear</button>
+         <button v-if="props.queue.length > 0" @click="handleClearAttempt" class="text-[10px] font-bold transition-colors uppercase tracking-tighter underline" :class="props.isRunning ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:text-red-700'">Clear</button>
       </div>
     </div>
 
     <div class="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden border border-gray-100 rounded-lg">
       
-      <div class="flex flex-col h-full bg-white z-10 shadow-[4px_0_15px_-3px_rgba(0,0,0,0.05)] relative transition-all duration-300" :class="props.mode === 'rc' ? 'w-full' : 'w-full lg:w-1/2 border-r border-gray-100'">
-        
-        <div v-if="props.mode === 'plan'" class="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-300">
+      <div 
+        class="flex flex-col h-full bg-white z-10 shadow-[4px_0_15px_-3px_rgba(0,0,0,0.05)] relative transition-all duration-300 w-full lg:w-1/2 border-r border-gray-100"
+      >
+        <div class="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-300">
           <MissionListItem :isConfig="true" label="Initial Configuration" :isActive="props.activeIndex === 0" :isRunning="props.isRunning" class="shrink-0 mb-4">
             <template #details>
                <div class="grid grid-cols-3 gap-2 text-xs mt-2">
@@ -159,17 +156,9 @@ const saveEdit = () => {
           </div>
         </div>
 
-        <div v-else class="flex-1 h-full overflow-hidden">
-          <RemoteControlPanel 
-            @send-rc="$emit('send-rc', $event)"
-            @save-to-plan="$emit('save-to-plan', $event)"
-          />
-        </div>
-
-      </div>  
+        </div>  
 
       <VisualBoard 
-        v-if="props.mode !== 'rc'"
         class="w-full lg:w-1/2"
         :queue="props.queue" 
         :active-index="props.activeIndex" 
