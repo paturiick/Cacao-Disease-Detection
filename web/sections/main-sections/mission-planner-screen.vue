@@ -181,13 +181,8 @@ const startStatusPoll = () => {
 };
 
 const handleRunMission = async () => {
-  if (!telemetryState.connected) {
-    modalConfig.title = "Drone Not Connected";
-    modalConfig.message = "Please connect to the drone before starting a mission.";
-    modalConfig.isWarning = true;
-    showCompleteModal.value = true;
-    return;
-  }
+  // Removed the strict frontend telemetry check.
+  // The backend API will now dictate if it's safe/possible to run the mission.
 
   isRunning.value = true;
   currentStepIndex.value = -1;

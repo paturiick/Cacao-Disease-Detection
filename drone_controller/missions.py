@@ -88,6 +88,25 @@ class MissionBuilder:
         self.steps.append(MissionStep(f"go {x_val} {y_val} {z_val} {spd_val}", delay_s))
         return self
 
+    # ==========================================
+    # NEW: RC AUTOMATION COMMAND
+    # ==========================================
+    def rc(self, a: int, b: int, c: int, d: int, duration_s: float = 5.0):
+        """
+        Automates continuous RC flight. 
+        a: roll, b: pitch, c: throttle, d: yaw (-100 to 100)
+        duration_s: How long to hold the virtual sticks in this position
+        """
+        a_val = max(-100, min(100, int(a)))
+        b_val = max(-100, min(100, int(b)))
+        c_val = max(-100, min(100, int(c)))
+        d_val = max(-100, min(100, int(d)))
+        
+        # We append 'delay_s' as the flight duration for the executor to use
+        self.steps.append(MissionStep(f"rc {a_val} {b_val} {c_val} {d_val}", float(duration_s)))
+        return self
+
+
 class MissionExecutor:
     def __init__(self, client: TelloClient):
         self.client = client
@@ -118,7 +137,6 @@ class MissionExecutor:
     def cancel(self):
         self._cancel_flag = True
 
-    # --- FIXED INDENTATION: This must be inside the class ---
     def _execute_sequence(self, steps: List[MissionStep], speed: int):
         try:
             self.state["status"] = "running"
@@ -155,14 +173,48 @@ class MissionExecutor:
                 
                 print(f"\n[MISSION CONTROL] Sending Command: {step.cmd}", flush=True)
 
-                response = self.client.send(step.cmd)
+                # ====================================================
+                # NEW: AUTOMATED RC COMMANDS (Fire-and-forget loop)
+                # ====================================================
+                if step.cmd.startswith("rc "):
+                    end_time = time.time() + step.delay_s
+                    
+                    # Heartbeat Loop: Send the command 10 times a second
+                    while time.time() < end_time:
+                        if self._cancel_flag:
+                            break
+                        try:
+                            # Send directly via UDP socket so it doesn't block waiting for 'ok'
+                            self.client.sock.sendto(step.cmd.encode("utf-8"), self.client.addr)
+                        except Exception:
+                            pass
+                        time.sleep(0.1) 
+                    
+                    # Lookahead Logic: Are we chaining another RC command next?
+                    is_next_rc = False
+                    if i + 1 < len(steps):
+                        if steps[i + 1].cmd.startswith("rc "):
+                            is_next_rc = True
+                    
+                    # If the next step is NOT an RC command, slam the brakes.
+                    if not is_next_rc and not self._cancel_flag:
+                        try:
+                            self.client.sock.sendto(b"rc 0 0 0 0", self.client.addr)
+                        except Exception:
+                            pass
+                        time.sleep(0.5) # Brief pause to let the drone stabilize
 
-                print(f"[DRONE RESPONSE] Tello replied: {response.text}\n", flush=True) 
-                
-                if not response or not getattr(response, 'ok', False):
-                     raise Exception(f"Drone rejected command: {step.cmd}")
+                # ====================================================
+                # STANDARD DISCRETE COMMANDS (Blocking)
+                # ====================================================
+                else:
+                    response = self.client.send(step.cmd)
+                    print(f"[DRONE RESPONSE] Tello replied: {response.text}\n", flush=True) 
+                    
+                    if not response or not getattr(response, 'ok', False):
+                         raise Exception(f"Drone rejected command: {step.cmd}")
 
-                time.sleep(max(2.0, step.delay_s)) 
+                    time.sleep(max(2.0, step.delay_s)) 
 
             self.state["status"] = "completed"
             self.state["message"] = "Mission complete. Executing landing."
