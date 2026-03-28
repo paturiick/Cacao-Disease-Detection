@@ -1,6 +1,7 @@
-import { reactive } from 'vue';
+import { reactive, onUnmounted } from 'vue';
 import { telemetryApi } from '~/sections/api/telemetryApi';
 
+// Global state shared by all components
 const state = reactive({
   recorded_at: null,
   connected: false,
@@ -28,74 +29,87 @@ const state = reactive({
   speed: 0,   
 });
 
-let pollInterval = null;
+let eventSource = null; // Replaces pollInterval
 let activeSubscribers = 0; 
 
 export function useTelemetry() {
   
-  const fetchLatest = async () => {
-    try {
-      const data = await telemetryApi.getLatest();
-      
-      state.recorded_at = data.recorded_at ?? state.recorded_at;
-      state.connected = data.connected ?? state.connected;
-      state.battery = data.battery ?? state.battery;
-      state.altitude_m = data.altitude_m ?? state.altitude_m;
-      state.pitch = data.pitch ?? state.pitch;
-      state.roll = data.roll ?? state.roll;
-      state.yaw = data.yaw ?? state.yaw;
-      state.tof_cm = data.tof_cm ?? state.tof_cm;
-      state.temp_c = data.temp_c ?? state.temp_c;
-      state.templ_c = data.templ_c ?? state.templ_c;
-      state.vgx = data.vgx ?? state.vgx;
-      state.vgy = data.vgy ?? state.vgy;
-      state.vgz = data.vgz ?? state.vgz;
-      state.agx = data.agx ?? state.agx;
-      state.agy = data.agy ?? state.agy;
-      state.agz = data.agz ?? state.agz;
-      state.baro = data.baro ?? state.baro;
-      state.flight_time = data.flight_time ?? state.flight_time;
+  // Internal helper to update the reactive state object
+  const updateState = (data) => {
+    if (!data) return;
 
-      if (data.gps_lat !== 0 && data.gps_lat !== undefined) {
-        state.gps_lat = data.gps_lat;
-      }
-      if (data.gps_lon !== 0 && data.gps_lon !== undefined) {
-        state.gps_lon = data.gps_lon;
-      }
+    state.recorded_at = data.recorded_at ?? state.recorded_at;
+    state.connected = data.connected ?? state.connected;
+    state.battery = data.battery ?? state.battery;
+    state.altitude_m = data.altitude_m ?? state.altitude_m;
+    state.pitch = data.pitch ?? state.pitch;
+    state.roll = data.roll ?? state.roll;
+    state.yaw = data.yaw ?? state.yaw;
+    state.tof_cm = data.tof_cm ?? state.tof_cm;
+    state.temp_c = data.temp_c ?? state.temp_c;
+    state.templ_c = data.templ_c ?? state.templ_c;
+    state.vgx = data.vgx ?? state.vgx;
+    state.vgy = data.vgy ?? state.vgy;
+    state.vgz = data.vgz ?? state.vgz;
+    state.agx = data.agx ?? state.agx;
+    state.agy = data.agy ?? state.agy;
+    state.agz = data.agz ?? state.agz;
+    state.baro = data.baro ?? state.baro;
+    state.flight_time = data.flight_time ?? state.flight_time;
 
-      state.heading = state.yaw >= 0 ? state.yaw : 360 + state.yaw;
-      
-      state.speed = Math.round(Math.sqrt((state.vgx ** 2) + (state.vgy ** 2)));
-
-    } catch (error) {
-      state.connected = false;
-      console.error("Global Telemetry Poll Failed", error);
+    if (data.gps_lat !== 0 && data.gps_lat !== undefined) {
+      state.gps_lat = data.gps_lat;
     }
+    if (data.gps_lon !== 0 && data.gps_lon !== undefined) {
+      state.gps_lon = data.gps_lon;
+    }
+
+    // Derived calculations
+    state.heading = state.yaw >= 0 ? state.yaw : 360 + state.yaw;
+    state.speed = Math.round(Math.sqrt((state.vgx ** 2) + (state.vgy ** 2)));
   };
 
-  const startPolling = () => {
+  const startStreaming = () => {
     activeSubscribers++;
-    if (activeSubscribers === 1 && !pollInterval) {
-      fetchLatest(); 
-      pollInterval = setInterval(fetchLatest, 1000); 
-      console.log("Started Global Telemetry Polling");
+    
+    // Only open the tunnel if it's the first subscriber and no stream exists
+    if (activeSubscribers === 1 && !eventSource) {
+      console.log("Opening Silent Telemetry SSE Stream...");
+      
+      eventSource = telemetryApi.connectStream();
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          updateState(data);
+        } catch (err) {
+          console.error("SSE Parse Error", err);
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        state.connected = false;
+        console.warn("Telemetry Stream Interrupted. Auto-reconnecting...");
+      };
     }
   };
 
-  const stopPolling = () => {
+  const stopStreaming = () => {
     activeSubscribers--;
     if (activeSubscribers <= 0) {
-      clearInterval(pollInterval);
-      pollInterval = null;
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
       activeSubscribers = 0; 
-      console.log("Stopped Global Telemetry Polling");
+      console.log("Closed Telemetry SSE Stream.");
     }
   };
 
   return {
     telemetryState: state,
-    startPolling,
-    stopPolling,
-    fetchLatest
+    startPolling: startStreaming, 
+    stopPolling: stopStreaming,
+    fetchLatest: updateState 
   };
 }

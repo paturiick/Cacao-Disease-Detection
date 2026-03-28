@@ -17,7 +17,12 @@ async function jfetch(url, opts) {
 
 export const telemetryApi = {
   
+  // Standard polling/fallback method
   getLatest: () => jfetch('/api/telemetry/latest/', { method: 'GET' }),
 
-
+  // NEW: SSE Stream connection
+  connectStream: () => {
+    // EventSource handles the persistent connection and auto-reconnects
+    return new EventSource(`${BASE}/api/telemetry/stream/`);
+  }
 };
