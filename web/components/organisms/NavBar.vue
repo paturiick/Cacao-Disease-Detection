@@ -11,7 +11,7 @@ import IconWifi from '~/components/atoms/IconWifi.vue';
 import IconMap from '~/components/atoms/IconMap.vue';
 import IconReport from '~/components/atoms/IconReport.vue';
 
-// --- CHANGED: Added `battery` prop ---
+// --- ADDED `battery` prop here ---
 const props = defineProps({
   activePage: { type: String, required: true },
   battery: { type: Number, default: null } 
@@ -78,7 +78,7 @@ const handleSync = async () => {
     
     <NavBarBranding 
       :connectionStatus="currentDroneStatus" 
-      :battery="battery"
+      :battery="props.battery"
       @click="logout" 
     />
 

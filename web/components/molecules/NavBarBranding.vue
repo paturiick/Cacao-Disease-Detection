@@ -40,7 +40,7 @@ const isConnected = computed(() => {
           {{ isConnected ? 'Connected' : 'Disconnected' }}
         </span>
 
-        <template v-if="isConnected && battery !== null">
+        <template v-if="battery !== null">
           <span class="text-slate-300 text-[10px] mx-0.5">•</span>
           
           <div class="flex items-center gap-1" :title="`Drone Battery: ${battery}%`">

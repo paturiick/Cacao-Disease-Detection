@@ -8,75 +8,11 @@ import MissionListItem from '~/components/molecules/mission_plan_molecules/Missi
 import MissionStatusBadge from '~/components/molecules/mission_plan_molecules/MissionStatusBadge.vue';
 import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
 
-import DrawingCanvasBoard from '~/components/organisms/mission_planner_organism/DrawingCanvasBoard.vue';
+// --- NEW COMPONENT IMPORT ---
+import VisualBoard from '~/components/organisms/mission_planner_organism/VisualBoard.vue';
 
-const props = defineProps(['queue', 'isRunning', 'activeIndex', 'flightParams', 'commandOptions', 'isDrawingMode']);
-const emit = defineEmits(['remove', 'clear', 'reorder', 'edit', 'sync-drawn-commands', 'mode-change']);
-
-const canvasLines = ref([]);
-
-const convertQueueToLines = (queue) => {
-  let x = 50;  
-  let y = 150; 
-  let lines = [];
-  
-  queue.forEach(cmd => {
-    if (['forward', 'back', 'left', 'right'].includes(cmd.type)) {
-      let val = Number(cmd.val) || 0;
-      if (val === 0) return;
-      
-      let visualVal = val * 10; 
-      let nx = x, ny = y;
-      
-      if (cmd.type === 'forward') ny -= visualVal;
-      else if (cmd.type === 'back') ny += visualVal;
-      else if (cmd.type === 'left') nx -= visualVal;
-      else if (cmd.type === 'right') nx += visualVal;
-      
-      lines.push({ 
-        x1: x, y1: y, x2: nx, y2: ny, 
-        command: cmd.type, 
-        val: cmd.val,
-        isPoint: false
-      });
-      x = nx; y = ny;
-    } else {
-      lines.push({
-        x1: x, y1: y, x2: x, y2: y, 
-        command: cmd.type,
-        val: cmd.val,
-        isPoint: true
-      });
-    }
-  });
-  return lines;
-};
-
-const convertLinesToCommands = (lines) => {
-  let commands = [];
-  lines.forEach(line => {
-    if (line.command && line.val !== undefined) {
-      commands.push({ type: line.command, val: line.val });
-    }
-  });
-  return commands;
-};
-
-const switchMode = (mode) => {
-  // EXPLICITLY TELL PARENT TO CHANGE TABS
-  emit('mode-change', mode);
-  
-  if (mode) {
-    canvasLines.value = convertQueueToLines(props.queue);
-  } else {
-    const newCommands = convertLinesToCommands(canvasLines.value);
-    emit('sync-drawn-commands', newCommands);
-  }
-};
-
-const handleCanvasUpdate = (newLines) => {
-  canvasLines.value = newLines;
-};
+const props = defineProps(['queue', 'isRunning', 'activeIndex', 'flightParams', 'commandOptions']);
+const emit = defineEmits(['remove', 'clear', 'reorder', 'edit']);
 
 const showModal = ref(false);
 const modalConfig = ref({ title: '', message: '', isWarning: false, confirmText: 'Confirm', cancelText: 'Cancel' });
@@ -92,13 +28,7 @@ const handleClearAttempt = () => {
 };
 
 const onModalConfirm = () => {
-  if (!modalConfig.value.isWarning) { 
-    if (props.isDrawingMode) {
-      canvasLines.value = []; 
-    } else {
-      emit('clear'); 
-    }
-  }
+  if (!modalConfig.value.isWarning) emit('clear'); 
   showModal.value = false;
 };
 
@@ -147,44 +77,25 @@ const saveEdit = () => {
 </script>
 
 <template>
-  <BaseCard class="h-full flex flex-col bg-white/95 backdrop-blur-sm relative">
+  <BaseCard class="h-full flex flex-col bg-white/95 backdrop-blur-sm relative overflow-hidden">
     
-    <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-4">
+    <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-4 shrink-0 px-2 pt-2">
       <div class="flex items-center gap-4">
-        <button 
-          @click="switchMode(false)"
-          class="flex items-center gap-2 transition-all duration-200 group"
-          :class="!props.isDrawingMode ? 'opacity-100 scale-105 text-[#0F2830]' : 'opacity-50 hover:opacity-80 text-gray-500'"
-        >
-          <SectionHeader class="!mb-0 transition-colors" :class="{'!font-normal': props.isDrawingMode}">
+        <div class="flex items-center gap-2 text-[#0F2830]">
+          <SectionHeader class="!mb-0 transition-colors">
             <template #icon>
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
             </template>
-            Manual Mode
+            Mission Commands
           </SectionHeader>
-        </button>
-
-        <div class="w-px h-5 bg-gray-200"></div>
-
-        <button 
-          @click="switchMode(true)"
-          class="flex items-center gap-2 transition-all duration-200 group"
-          :class="props.isDrawingMode ? 'opacity-100 scale-105 text-[#0F2830]' : 'opacity-50 hover:opacity-80 text-gray-500'"
-        >
-          <SectionHeader class="!mb-0 transition-colors" :class="{'!font-normal': !props.isDrawingMode}">
-            <template #icon>
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-            </template>
-            Draw Directions
-          </SectionHeader>
-        </button>
+        </div>
       </div>
       
       <div class="flex gap-3 items-center">
          <MissionStatusBadge :isActive="props.isRunning" />
          
          <button 
-           v-if="props.queue.length > 0 || (props.isDrawingMode && canvasLines.length > 0)" 
+           v-if="props.queue.length > 0" 
            @click="handleClearAttempt" 
            class="text-[10px] font-bold transition-colors uppercase tracking-tighter underline"
            :class="props.isRunning ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:text-red-700'"
@@ -194,54 +105,44 @@ const saveEdit = () => {
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 flex flex-col">
+    <div class="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden border border-gray-100 rounded-lg">
       
-      <div v-show="!props.isDrawingMode" class="flex-1 flex flex-col h-full min-h-0">
-        <MissionListItem :isConfig="true" label="Initial Configuration" :isActive="props.activeIndex === 0" :isRunning="props.isRunning" class="shrink-0 mb-3">
-          <template #details>
-             <div class="grid grid-cols-3 gap-2 text-xs mt-2">
-               <div class="bg-white rounded border border-gray-200 p-1 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Alt</span>{{ flightParams.altitude || 0 }}m</div>
-               <div class="bg-white rounded border border-gray-200 p-1 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Spd</span>{{ flightParams.speed || 0 }}m/s</div>
-               <div class="bg-white rounded border border-gray-200 p-1 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Mode</span>{{ flightParams.mode || '-' }}</div>
-             </div>
-          </template>
-        </MissionListItem>
+      <div class="w-full lg:w-1/2 flex flex-col h-full bg-white border-r border-gray-100 z-10 shadow-[4px_0_15px_-3px_rgba(0,0,0,0.05)] relative">
+        <div class="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-300">
+          
+          <MissionListItem :isConfig="true" label="Initial Configuration" :isActive="props.activeIndex === 0" :isRunning="props.isRunning" class="shrink-0 mb-4">
+            <template #details>
+               <div class="grid grid-cols-3 gap-2 text-xs mt-2">
+                 <div class="bg-gray-50 rounded border border-gray-200 p-1.5 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Alt</span>{{ flightParams.altitude || 0 }}m</div>
+                 <div class="bg-gray-50 rounded border border-gray-200 p-1.5 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Spd</span>{{ flightParams.speed || 0 }}m/s</div>
+                 <div class="bg-gray-50 rounded border border-gray-200 p-1.5 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Mode</span>{{ flightParams.mode || '-' }}</div>
+               </div>
+            </template>
+          </MissionListItem>
 
-        <div v-if="props.queue.length === 0" class="flex-1 flex items-center justify-center pb-12">
-          <MissionListEmpty />
-        </div>
+          <div v-if="props.queue.length === 0" class="flex-1 flex items-center justify-center py-16 opacity-70">
+            <MissionListEmpty />
+          </div>
 
-        <div v-else class="space-y-3">
-          <div v-for="(item, idx) in props.queue" :key="item.id" :draggable="!props.isRunning" @dragstart="handleDragStart(idx, $event)" @dragover="handleDragOver(idx, $event)" @dragenter.prevent @drop="handleDrop(idx, $event)" @dragend="handleDragEnd" class="transition-all duration-200 ease-in-out relative group" :title="!props.isRunning ? 'Drag to reorder' : ''" :class="{'cursor-grab active:cursor-grabbing': !props.isRunning, 'opacity-40 scale-[0.98]': draggedIndex === idx, 'border-t-2 border-[#658D1B] pt-2 mt-2': dragOverIndex === idx && draggedIndex !== idx && dragOverIndex < draggedIndex, 'border-b-2 border-[#658D1B] pb-2 mb-2': dragOverIndex === idx && draggedIndex !== idx && dragOverIndex > draggedIndex}">
-            
-            <button v-if="!props.isRunning" @click.stop="openEditModal(idx)" class="absolute -left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 z-10 bg-white border border-gray-200 text-[#658D1B] p-1.5 rounded-full shadow-md hover:bg-gray-50 transition-opacity">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-            </button>
+          <div v-else class="space-y-3 pb-8">
+            <div v-for="(item, idx) in props.queue" :key="item.id" :draggable="!props.isRunning" @dragstart="handleDragStart(idx, $event)" @dragover="handleDragOver(idx, $event)" @dragenter.prevent @drop="handleDrop(idx, $event)" @dragend="handleDragEnd" class="transition-all duration-200 ease-in-out relative group" :title="!props.isRunning ? 'Drag to reorder' : ''" :class="{'cursor-grab active:cursor-grabbing': !props.isRunning, 'opacity-40 scale-[0.98]': draggedIndex === idx, 'border-t-2 border-[#658D1B] pt-2 mt-2': dragOverIndex === idx && draggedIndex !== idx && dragOverIndex < draggedIndex, 'border-b-2 border-[#658D1B] pb-2 mb-2': dragOverIndex === idx && draggedIndex !== idx && dragOverIndex > draggedIndex}">
+              
+              <button v-if="!props.isRunning" @click.stop="openEditModal(idx)" class="absolute -left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 z-10 bg-white border border-gray-200 text-[#658D1B] p-1.5 rounded-full shadow-md hover:bg-gray-50 transition-opacity">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+              </button>
 
-            <MissionListItem :index="idx" :label="item.label" :value="item.val" :unit="item.unit" :icon="item.icon" :isActive="props.activeIndex === idx + 1" :isRunning="props.isRunning" @remove="$emit('remove', idx)" />
+              <MissionListItem :index="idx" :label="item.label" :value="item.val" :unit="item.unit" :icon="item.icon" :isActive="props.activeIndex === idx + 1" :isRunning="props.isRunning" @remove="$emit('remove', idx)" />
+            </div>
           </div>
         </div>
       </div>  
 
-      <div v-show="props.isDrawingMode" class="flex-1 flex flex-col h-full min-h-0 overflow-hidden pt-2 pb-2">
-        <div class="flex justify-between items-center px-1 shrink-0 pb-3">
-          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ortho Grid</span>
-          <span class="text-[10px] font-bold text-[#658D1B] uppercase tracking-widest flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#658D1B] animate-pulse"></span> Snapping Active
-          </span>
-        </div>
-        
-        <DrawingCanvasBoard 
-          class="flex-1 min-h-0" 
-          :initialLines="canvasLines" 
-          :commandOptions="props.commandOptions" 
-          @update-path="handleCanvasUpdate" 
-        />
-        
-        <p class="text-[11px] text-gray-500 text-center px-4 mt-3 shrink-0">
-          Click and drag to draw lines. Click once to add in-place commands (Hover, Rotate).
-        </p>
-      </div>
+      <VisualBoard 
+        class="w-full lg:w-1/2"
+        :queue="props.queue" 
+        :active-index="props.activeIndex" 
+        :is-running="props.isRunning" 
+      />
 
     </div>
 

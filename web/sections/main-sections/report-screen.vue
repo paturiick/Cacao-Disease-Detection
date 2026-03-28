@@ -1,11 +1,29 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
+
+// 1. IMPORT TELEMETRY COMPOSABLE (This was missing)
+import { useTelemetry } from "~/components/composables/useTelemetry"; 
 
 import MissionHistory from '~/components/molecules/report_molecules/MissionHistory.vue';
 import DetectionStatisticsCard from '~/components/molecules/report_molecules/DetectionStatisticsCard.vue';
 import FlightStatisticsCard from '~/components/molecules/report_molecules/FlightStatisticsCard.vue';
 import MissionSummaryCard from '~/components/molecules/report_molecules/MissionSummaryCard.vue';
+
+// 2. INITIALIZE TELEMETRY 
+const { telemetryState, startPolling, stopPolling } = useTelemetry();
+
+// 3. DEFINE SIGNAL STATUS (This was missing, causing an error)
+const signalStatus = computed(() => telemetryState.connected ? 'Online' : 'Offline');
+
+// 4. START/STOP POLLING ON MOUNT
+onMounted(() => {
+  startPolling();
+});
+
+onUnmounted(() => {
+  stopPolling();
+});
 
 //Sample Database State
 const missions = ref([
@@ -53,9 +71,14 @@ const handleExportPDF = () => {
   <div class="flex flex-col h-screen overflow-hidden font-inter bg-cover bg-center relative print:bg-none print:h-auto print:overflow-visible"
     style="background-image: url('https://images.unsplash.com/photo-1542319084-2a6c38210350?q=80&w=2574&auto=format&fit=crop');"
     >
+    <div class="absolute inset-0 bg-black/40 z-0 print:hidden"></div>
     
     <div class="z-20 relative shrink-0 print:hidden">
-      <DashboardNavBar active-page="report" droneStatus="Offline" />
+      <DashboardNavBar 
+        active-page="report" 
+        :connectionStatus="signalStatus" 
+        :battery="telemetryState.battery"
+      />
     </div>
 
     <div class="flex-1 z-10 p-4 lg:p-6 overflow-hidden flex gap-4 lg:gap-6 max-w-[1920px] mx-auto w-full print:p-0 print:block print:overflow-visible">
