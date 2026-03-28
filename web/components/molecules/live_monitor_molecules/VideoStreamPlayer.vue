@@ -1,25 +1,33 @@
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { liveApi } from '~/sections/api/liveApi';
 import { isStreamActive, activeSessionId } from '~/components/composables/droneStore'; 
 import { useTelemetry } from '~/components/composables/useTelemetry'; 
 
 const { telemetryState } = useTelemetry();
 const isLoading = ref(false);
+
+// Local timestamp used to force the browser to refresh the image buffer
 const streamTimestamp = ref(Date.now());
 
 const videoSrc = computed(() => {
+  // We only show the source if the global store says active AND telemetry is connected
   if (!isStreamActive.value || !telemetryState.connected) return '';
   return `${liveApi.getStreamUrl()}?t=${streamTimestamp.value}`;
 });
 
 const startStream = async () => {
+  // Safety check: Don't start if already streaming or currently busy initializing
   if (isStreamActive.value || isLoading.value) return;
   
   isLoading.value = true;
   try {
     const response = await liveApi.toggleHardware('streamon');
+    
+    // Update timestamp to ensure the <img> tag re-fetches the stream
     streamTimestamp.value = Date.now();
+    
+    // Set global store to active so other pages know the stream is running
     isStreamActive.value = true; 
     
     if (response.session_id) {
@@ -29,6 +37,7 @@ const startStream = async () => {
     console.error(`Hardware Camera Toggle (streamon) Failed:`, e);
     isStreamActive.value = false;
   } finally {
+    // Artificial delay to allow the drone hardware to stabilize its local MJPEG server
     setTimeout(() => {
       isLoading.value = false;
     }, 1500); 
@@ -36,6 +45,7 @@ const startStream = async () => {
 };
 
 const stopStream = async () => {
+  // If already stopped, do nothing
   if (!isStreamActive.value) return;
   
   isStreamActive.value = false; 
@@ -48,20 +58,22 @@ const stopStream = async () => {
   }
 };
 
+/**
+ * WATCHER: This is the engine for automatic streaming.
+ * It monitors the drone's connection status.
+ */
 watch(() => telemetryState.connected, (isConnected) => {
   if (isConnected) {
+    console.log("Drone connected: Automatically starting stream...");
     startStream();
   } else {
+    console.log("Drone disconnected: Stopping stream...");
     stopStream();
   }
-}, { immediate: true }); // immediate: true checks the status the moment the component loads
+}, { immediate: true }); 
 
-// Cleanup when the component is destroyed
-onBeforeUnmount(() => {
-  if (isStreamActive.value) {
-    stopStream();
-  }
-});
+// NOTE: onBeforeUnmount is REMOVED so that navigating away from the page
+// does not send a 'streamoff' command to the drone.
 </script>
 
 <template>
@@ -92,13 +104,13 @@ onBeforeUnmount(() => {
 
     <div class="bg-black relative flex items-center justify-center w-full h-full overflow-hidden">
       
-      <div v-if="!isStreamActive || !telemetryState.connected" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 z-20 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjMDAwIj48L3JlY3Q+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjQiIGZpbGw9IiMwYTBhMGEiPjwvcmVjdD4KPC9zdmc+')]">
+      <div v-if="!isStreamActive || !telemetryState.connected" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 z-20 bg-[#0A0A0A]">
         <div class="bg-slate-900/80 p-6 rounded-2xl flex flex-col items-center border border-slate-700/50 backdrop-blur-sm shadow-2xl">
           <svg class="w-12 h-12 mb-3 opacity-50" :class="{'animate-pulse': isLoading}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path>
           </svg>
-          <span class="text-sm font-semibold tracking-wide uppercase text-slate-400">
-            {{ !telemetryState.connected ? 'Stream Offline' : 'Loading Stream...' }}
+          <span class="text-sm font-semibold tracking-wide uppercase text-slate-400 text-center">
+            {{ !telemetryState.connected ? 'Awaiting Drone Connection...' : (isLoading ? 'Synchronizing Feed...' : 'Stream Ready') }}
           </span>
         </div>
       </div>
