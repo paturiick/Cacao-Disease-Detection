@@ -1,12 +1,12 @@
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue';
-import { missionApi } from "../api/missionApi";
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { missionApi } from "../api/missionApi"; // Kept ONLY for the emergency land function
 import { useTelemetry } from "~/components/composables/useTelemetry"; 
 
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 import VideoStreamPlayer from '~/components/molecules/live_monitor_molecules/VideoStreamPlayer.vue';
 import ToggleDetailsButton from '~/components/atoms/ToggleDetailsButton.vue'; 
-import StreamDataCard from '~/components/molecules/live_monitor_molecules/StreamDataCard.vue'; // IMPORTED NEW COMPONENT
+import StreamDataCard from '~/components/molecules/live_monitor_molecules/StreamDataCard.vue'; 
 
 // --- GLOBAL TELEMETRY STATE ---
 const { telemetryState, startPolling, stopPolling } = useTelemetry();
@@ -14,19 +14,12 @@ const { telemetryState, startPolling, stopPolling } = useTelemetry();
 // --- STATE ---
 const isStreamConnected = ref(false);
 const showTelemetry = ref(false); 
-const planId = ref(null);
-let missionPoll = null;
 
 // Error handling state
 const errorMessage = ref('');
 let errorTimer = null;
 
-const missionData = reactive({
-  healthyCacao: 0,
-  diseasedCacao: 0
-});
-
-// --- NEW: Emergency Landing State ---
+// Emergency Landing State
 const isLanding = ref(false);
 
 // --- COMPUTED ---
@@ -62,35 +55,14 @@ const handleEmergencyLand = async () => {
 };
 
 // --- LIFECYCLE ---
-onMounted(async () => {
+onMounted(() => {
+  // Just start the silent telemetry SSE tunnel
   startPolling();
-
-  try {
-    const plan = await missionApi.getActive();
-    if (plan) {
-      planId.value = plan.id;
-      missionData.healthyCacao = plan.healthy_cacao ?? 0;
-      missionData.diseasedCacao = plan.diseased_cacao ?? 0;
-
-      missionPoll = setInterval(async () => {
-        if (!planId.value) return;
-        try {
-          const s = await missionApi.status(planId.value);
-          missionData.healthyCacao = s.healthy_cacao ?? missionData.healthyCacao;
-          missionData.diseasedCacao = s.diseased_cacao ?? missionData.diseasedCacao;
-        } catch (err) {
-          console.error("Mission status poll failed:", err);
-        }
-      }, 1000);
-    }
-  } catch(e) {
-    console.error("Failed to establish drone mission connection:", e);
-  }
 });
 
 onUnmounted(() => {
+  // Clean up when the user leaves the page
   stopPolling();
-  if (missionPoll) clearInterval(missionPoll);
   if (errorTimer) clearTimeout(errorTimer);
 });
 </script>

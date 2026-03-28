@@ -3,57 +3,67 @@ import { ref, watch, onUnmounted } from 'vue';
 import { useTelemetry } from "~/components/composables/useTelemetry"; 
 import { isStreamActive, activeSessionId } from '~/components/composables/droneStore';
 import BaseCard from '~/components/atoms/BaseCard.vue';
-import { detectionApi } from '~/sections/api/detectionApi'; 
 
+// 1. Telemetry is automatically handled by the composable's SSE stream!
 const { telemetryState } = useTelemetry();
 
 const healthyCount = ref(0);
 const diseasedCount = ref(0);
 const sickPods = ref([]);
 
-let pollInterval = null;
+// 2. Variable to hold our persistent AI Detection tunnel
+let detectionStream = null;
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-const fetchSessionStats = async () => {
-  // DEBUG LOG 1: Tells us if the timer is actually looping and what ID it sees
-  console.log("[DEBUG] Timer fired! Current Session ID:", activeSessionId.value);
-  
-  // Only ask for data if we actually have a session ID
+const startDetectionStream = () => {
   if (!activeSessionId.value) return;
   
-  try {
-    const data = await detectionApi.getSessionStats(activeSessionId.value);
+  // Close any existing connections before opening a new one
+  if (detectionStream) detectionStream.close();
+
+  // Open the one-way SSE tunnel to Django for AI Stats
+  // (Make sure you added the stream_detection_stats view to Django as discussed earlier!)
+  detectionStream = new EventSource(`${BASE_URL}/api/detections/stream-stats/?session_id=${activeSessionId.value}`);
+
+  // Listen for incoming AI data packets
+  detectionStream.onmessage = (event) => {
+    const data = JSON.parse(event.data);
     
-    if (data) {
+    if (data.status === 'success') {
       healthyCount.value = data.healthy_count || 0;
       diseasedCount.value = data.unhealthy_count || 0;
-      
-      // Filter out only the unhealthy pods to display in the UI
       sickPods.value = (data.pods || []).filter(pod => pod.status === 'unhealthy');
     }
-  } catch (error) {
-    console.error("Stats polling failed:", error.message);
-  }
+  };
+
+  detectionStream.onerror = () => {
+    console.warn("[Detection Stream] Interrupted. Browser will auto-reconnect...");
+  };
 };
 
-// Watch the global stream state. 
+// Watch the global stream state
 watch(isStreamActive, (isActive) => {
-  // DEBUG LOG 2: Tells us if the UI button is successfully updating the global state
   console.log("[DEBUG] Stream State Changed! Is Active:", isActive, "| Session ID:", activeSessionId.value);
 
   if (isActive) {
     healthyCount.value = 0;
     diseasedCount.value = 0;
-    sickPods.value = []; // Reset the list on new stream
-    // Check for new pods every 2 seconds
-    pollInterval = setInterval(fetchSessionStats, 2000);
+    sickPods.value = [];
+    
+    // Start the SSE tunnel instead of polling
+    startDetectionStream();
   } else {
-    if (pollInterval) clearInterval(pollInterval);
+    // If stream turns off, cleanly close the tunnel
+    if (detectionStream) {
+      detectionStream.close();
+      detectionStream = null;
+    }
   }
 }, { immediate: true }); 
 
-// Clean up the timer if the user leaves the page
+// Clean up if the user leaves the page
 onUnmounted(() => {
-  if (pollInterval) clearInterval(pollInterval);
+  if (detectionStream) detectionStream.close();
 });
 </script>
 
