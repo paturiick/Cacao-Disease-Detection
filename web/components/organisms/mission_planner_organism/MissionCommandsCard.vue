@@ -9,8 +9,9 @@ const emit = defineEmits(['add']);
 
 const newCommand = reactive({ type: '', val: '' });
 
-// 1. Removed speed from the initial parameters
 const goParams = reactive({ x: 0, y: 0, z: 0 });
+// NEW: Added duration to rcParams
+const rcParams = reactive({ a: 0, b: 0, c: 0, d: 0, duration: 1 });
 
 const errorMessage = ref(''); 
 
@@ -31,34 +32,26 @@ const handleAdd = () => {
   }
 
   if (newCommand.type === 'go') {
-    // 2. Only extracting x, y, z
     const { x, y, z } = goParams;
-
-    if (x < -500 || x > 500 || y < -500 || y > 500 || z < -500 || z > 500) {
-      errorMessage.value = "Safety Error: Coordinates must be between -500 and 500.";
-      return;
-    }
-
-    if (x > -20 && x < 20 && y > -20 && y < 20 && z > -20 && z < 20) {
-      errorMessage.value = "Safety Error: X, Y, and Z cannot all be between -20 and 20 at the same time.";
-      return;
-    }
-
-    // 3. Removed speed validation and updated the emitted string
+    if (x < -500 || x > 500 || y < -500 || y > 500 || z < -500 || z > 500) { errorMessage.value = "Safety Error: Coordinates must be between -500 and 500."; return; }
+    if (x > -20 && x < 20 && y > -20 && y < 20 && z > -20 && z < 20) { errorMessage.value = "Safety Error: X, Y, and Z cannot all be between -20 and 20 at the same time."; return; }
     emit('add', { type: 'go', val: `${x} ${y} ${z}` });
-    
-    // 4. Reset only x, y, z
     goParams.x = 0; goParams.y = 0; goParams.z = 0; 
   } 
+  else if (newCommand.type === 'rc') {
+    const { a, b, c, d, duration } = rcParams;
+    if ([a, b, c, d].some(val => val < -100 || val > 100)) { errorMessage.value = "Safety Error: All RC forces must be between -100 and 100."; return; }
+    if (duration <= 0) { errorMessage.value = "Safety Error: Duration must be at least 1 second."; return; }
+    
+    // Emit all 5 values
+    emit('add', { type: 'rc', val: `${a} ${b} ${c} ${d} ${duration}` });
+    rcParams.a = 0; rcParams.b = 0; rcParams.c = 0; rcParams.d = 0; rcParams.duration = 1;
+  }
   else if (newCommand.type === 'mon') {
-    // Emit 'mon' without any value
     emit('add', { type: 'mon', val: '' });
   }
   else {
-    if (!newCommand.val) {
-      errorMessage.value = "Please enter a valid duration or value.";
-      return;
-    }
+    if (!newCommand.val) { errorMessage.value = "Please enter a valid duration or value."; return; }
     emit('add', { ...newCommand }); 
     newCommand.val = ''; 
   }
@@ -74,25 +67,34 @@ const handleAdd = () => {
       Add Command
     </SectionHeader>
 
-    <div class="mt-4 space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+    <div class="mt-1 space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
       
       <div class="flex flex-col group">
         <label class="text-gray-600 text-sm font-medium mb-1.5">Command Type</label>
         <select v-model="newCommand.type" class="w-full border border-gray-300 rounded-md px-4 py-2.5 text-sm bg-white focus:border-[#658D1B] focus:ring-1 outline-none">
           <option value="" disabled>Select Command</option>
-          <option v-for="opt in commandOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
+          <option v-for="opt in commandOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
       </div>
 
       <div v-if="newCommand.type === 'go'" class="grid grid-cols-2 gap-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
         <div class="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Target Coordinates</div>
-        
         <div class="flex flex-col"><label class="text-xs text-gray-600 mb-1">X (-500 to 500)</label><input type="number" v-model="goParams.x" class="border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-[#658D1B] focus:ring-1" /></div>
         <div class="flex flex-col"><label class="text-xs text-gray-600 mb-1">Y (-500 to 500)</label><input type="number" v-model="goParams.y" class="border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-[#658D1B] focus:ring-1" /></div>
-        
         <div class="flex flex-col col-span-2"><label class="text-xs text-gray-600 mb-1">Z (-500 to 500)</label><input type="number" v-model="goParams.z" class="border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-[#658D1B] focus:ring-1" /></div>
+      </div>
+
+      <div v-else-if="newCommand.type === 'rc'" class="grid grid-cols-2 gap-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
+        <div class="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">RC Override Forces</div>
+        <div class="flex flex-col"><label class="text-[10px] font-bold text-gray-600 mb-1">LEFT/RIGHT (a)</label><input type="number" min="-100" max="100" v-model="rcParams.a" class="border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-[#658D1B] focus:ring-1" /></div>
+        <div class="flex flex-col"><label class="text-[10px] font-bold text-gray-600 mb-1">FWD/BWD (b)</label><input type="number" min="-100" max="100" v-model="rcParams.b" class="border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-[#658D1B] focus:ring-1" /></div>
+        <div class="flex flex-col"><label class="text-[10px] font-bold text-gray-600 mb-1">UP/DOWN (c)</label><input type="number" min="-100" max="100" v-model="rcParams.c" class="border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-[#658D1B] focus:ring-1" /></div>
+        <div class="flex flex-col"><label class="text-[10px] font-bold text-gray-600 mb-1">ROTATE (d)</label><input type="number" min="-100" max="100" v-model="rcParams.d" class="border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-[#658D1B] focus:ring-1" /></div>
+        
+        <div class="flex flex-col col-span-2 mt-1">
+          <label class="text-[10px] font-bold text-[#658D1B] mb-1">DURATION (Seconds)</label>
+          <input type="number" min="1" v-model="rcParams.duration" class="border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-[#658D1B] focus:ring-1 bg-white" />
+        </div>
       </div>
 
       <div v-else-if="newCommand.type === 'mon'" class="p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2">
