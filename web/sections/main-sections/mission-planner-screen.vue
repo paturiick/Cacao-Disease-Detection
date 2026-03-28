@@ -14,7 +14,6 @@ import BackwardIcon from '~/assets/icons/Backward.svg';
 import ClockwiseIcon from '~/assets/icons/Clockwise.svg';
 import CounterClockwiseIcon from '~/assets/icons/Counter-clockwise.svg';
 import HoverIcon from '~/assets/icons/Hover.svg';
-
 import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
 import FlightParametersCard from '~/components/organisms/mission_planner_organism/FlightParametersCard.vue';
 import MissionCommandsCard from '~/components/organisms/mission_planner_organism/MissionCommandsCard.vue';
@@ -73,7 +72,7 @@ const commandOptions = [
   { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: CounterClockwiseIcon},
   { label: 'Hover',       value: 'hover',   unit: 's',   icon: HoverIcon },
   { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z', icon: `<svg...` },
-  { label: 'RC Override', value: 'rc', unit: 'a b c d', icon: HoverIcon }
+  { label: 'RC Override', value: 'rc', unit: 'a b c d s', icon: HoverIcon }
 ];
 
 const decorateStep = (stepDto) => {
@@ -182,6 +181,15 @@ const startStatusPoll = () => {
 };
 
 const handleRunMission = async () => {
+  // Safety: Ensure drone is connected before attempting to run
+  if (!telemetryState.connected) {
+    modalConfig.title = "Drone Not Connected";
+    modalConfig.message = "Please establish a connection with the drone before running the mission.";
+    modalConfig.isWarning = true;
+    showCompleteModal.value = true;
+    return;
+  }
+
   isRunning.value = true;
   currentStepIndex.value = -1;
   try {
@@ -191,12 +199,13 @@ const handleRunMission = async () => {
       modalConfig.message = res.message || "An error occurred.";
       modalConfig.isWarning = true;
       showCompleteModal.value = true;
-      isRunning.value = false;
+      isRunning.value = false; // Stop loading if server returns an error
       return;
     }
     startStatusPoll();
   } catch (e) {
-    isRunning.value = false;
+    isRunning.value = false; // Stop loading if the request crashes
+    console.error("Mission execution error:", e);
   }
 };
 
@@ -271,7 +280,7 @@ onBeforeUnmount(() => {
             @edit="handleEditCommand"
             @sync-drawn-commands="handleSyncDrawnCommands"
             @send-rc="handleLiveRcCommand"
-            @save-to-plan="(rc) => handleAddCommand({ type: 'rc', val: `${rc.a} ${rc.b} ${rc.c} ${rc.d}` })"
+            @save-to-plan="(rc) => handleAddCommand({ type: 'rc', val: `${rc.a} ${rc.b} ${rc.c} ${rc.d} 5` })"
           />
         </div>
 
@@ -279,7 +288,7 @@ onBeforeUnmount(() => {
           
           <ControlPanel
             v-show="currentMode === 'plan'"
-            :hasMission="missionQueue.length > 0"
+            :queueLength="missionQueue.length"
             :isRunning="isRunning"
             :isLanding="isLanding" 
             :telemetry="formattedTelemetry"
