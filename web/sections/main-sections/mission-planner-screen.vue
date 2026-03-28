@@ -71,7 +71,7 @@ const commandOptions = [
   { label: 'Rotate CW',   value: 'cw',      unit: 'deg', icon: ClockwiseIcon},
   { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: CounterClockwiseIcon},
   { label: 'Hover',       value: 'hover',   unit: 's',   icon: HoverIcon },
-  { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z', icon: `<svg...` },
+  { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z', icon: ForwardIcon },
   { label: 'RC Override', value: 'rc', unit: 'a b c d s', icon: HoverIcon }
 ];
 
@@ -181,10 +181,10 @@ const startStatusPoll = () => {
 };
 
 const handleRunMission = async () => {
-  // Safety: Ensure drone is connected before attempting to run
+  // Safety check: Don't try to run if drone is offline
   if (!telemetryState.connected) {
     modalConfig.title = "Drone Not Connected";
-    modalConfig.message = "Please establish a connection with the drone before running the mission.";
+    modalConfig.message = "Please connect to the drone before starting a mission.";
     modalConfig.isWarning = true;
     showCompleteModal.value = true;
     return;
@@ -199,13 +199,12 @@ const handleRunMission = async () => {
       modalConfig.message = res.message || "An error occurred.";
       modalConfig.isWarning = true;
       showCompleteModal.value = true;
-      isRunning.value = false; // Stop loading if server returns an error
+      isRunning.value = false; // Reset loading state on error
       return;
     }
     startStatusPoll();
   } catch (e) {
-    isRunning.value = false; // Stop loading if the request crashes
-    console.error("Mission execution error:", e);
+    isRunning.value = false; // Reset loading state on crash
   }
 };
 
@@ -288,7 +287,7 @@ onBeforeUnmount(() => {
           
           <ControlPanel
             v-show="currentMode === 'plan'"
-            :queueLength="missionQueue.length"
+            :hasMission="missionQueue.length > 0"
             :isRunning="isRunning"
             :isLanding="isLanding" 
             :telemetry="formattedTelemetry"
@@ -349,25 +348,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.card-fold-enter-active {
-  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.card-fold-leave-active {
-  transition: all 0.4s cubic-bezier(0.36, 0, 0.66, -0.56);
-}
-.card-fold-enter-from,
-.card-fold-leave-to {
-  opacity: 0;
-  transform: scaleY(0.8) translateY(-40px);
-  filter: blur(10px);
-  flex-grow: 0.0001;
-  margin-top: -24px;
-}
-.flex-1, .flex-\[2\.5\] {
-  transition: flex 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: flex;
-}
-.overflow-hidden {
-  scrollbar-width: none;
-}
+.card-fold-enter-active { transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.card-fold-leave-active { transition: all 0.4s cubic-bezier(0.36, 0, 0.66, -0.56); }
+.card-fold-enter-from, .card-fold-leave-to { opacity: 0; transform: scaleY(0.8) translateY(-40px); filter: blur(10px); flex-grow: 0.0001; margin-top: -24px; }
+.flex-1, .flex-\[2\.5\] { transition: flex 0.6s cubic-bezier(0.4, 0, 0.2, 1); will-change: flex; }
+.overflow-hidden { scrollbar-width: none; }
 </style>
