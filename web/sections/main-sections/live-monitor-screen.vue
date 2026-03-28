@@ -103,7 +103,7 @@ onUnmounted(() => {
     <div class="absolute inset-0 bg-black/40 z-0"></div>
     
     <div class="z-20 relative shrink-0">
-      <DashboardNavBar active-page="live-monitor" :droneStatus="signalStatus" />
+      <DashboardNavBar active-page="live-monitor" :droneStatus="signalStatus" :battery="telemetryState.battery"/>
     </div>
 
     <Transition

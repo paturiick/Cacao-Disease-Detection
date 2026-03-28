@@ -211,7 +211,7 @@ onBeforeUnmount(() => {
     <div class="absolute inset-0 bg-black/40 z-0"></div>
 
     <div class="z-20 relative">
-      <DashboardNavBar :activePage="'mission-planner'" :droneStatus="formattedTelemetry.gps"/>
+      <DashboardNavBar :activePage="'mission-planner'" :droneStatus="formattedTelemetry.gps" :battery="formattedTelemetry.battery"/>
     </div>
 
     <div class="flex-1 z-10 p-6 overflow-hidden relative">
