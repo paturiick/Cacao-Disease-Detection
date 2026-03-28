@@ -12,10 +12,12 @@ class DroneReply:
     ms: int
 
 class TelloClient:
+    
     def __init__(self, tello_ip: str = TELLO_IP):
         self.addr = (tello_ip, CMD_PORT)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(("", LOCAL_CMD_PORT))
         self.sock.settimeout(CMD_TIMEOUT_S)
 

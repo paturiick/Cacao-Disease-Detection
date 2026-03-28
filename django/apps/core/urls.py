@@ -4,5 +4,6 @@ from . import views
 urlpatterns = [
     path("health/", views.health),
     path("drone/status/", views.drone_status_view),
+    path("drone/status/stream/", views.stream_drone_status),
     path("drone/connect/", views.drone_connect_view),
 ]

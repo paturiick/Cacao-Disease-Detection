@@ -76,7 +76,7 @@ class MissionBuilder:
         self.steps.append(MissionStep("moff", delay_s))
         return self
 
-    def go_xyz(self, x: int, y: int, z: int, speed: int = 30, delay_s: float = 1.0):
+    def go_xyz(self, x: int, y: int, z: int, speed: int = 10, delay_s: float = 1.0):
         x_val = max(-500, min(500, x))
         y_val = max(-500, min(500, y))
         z_val = max(-500, min(500, z))
@@ -91,6 +91,7 @@ class MissionBuilder:
 class MissionExecutor:
     def __init__(self, client: TelloClient):
         self.client = client
+        self._lock = threading.Lock()
         self.state = {
             "status": "inactive",
             "active_index": -1,
@@ -99,7 +100,12 @@ class MissionExecutor:
         self._thread = None
         self._cancel_flag = False
 
-    def run_async(self, steps: List[MissionStep], speed: int = 30) -> tuple[bool, str]:
+    @property
+    def safe_state(self):
+        with self._lock:
+            return dict(self.state)
+
+    def run_async(self, steps: List[MissionStep], speed: int = 10) -> tuple[bool, str]:
         if self.state["status"] == "running":
             return False, "Mission is already active."
 
@@ -123,6 +129,20 @@ class MissionExecutor:
             # Wait longer for takeoff to stabilize before moving
             time.sleep(5.0) 
 
+            # ==========================================
+            # 2. SET DYNAMIC HARDWARE SPEED
+            # ==========================================
+            # Ensure speed is strictly within Tello's 10-100 cm/s limit
+            safe_speed = max(10, min(100, speed))
+            self.state["message"] = f"Setting flight speed to {safe_speed} cm/s..."
+            
+            print(f"\n[MISSION CONTROL] Setting hardware speed to {safe_speed} cm/s", flush=True)
+            response = self.client.send(f"speed {safe_speed}")
+            print(f"[DRONE RESPONSE] Speed set: {response.text}", flush=True)
+            time.sleep(1.0) # Brief pause to let drone process the setting
+            # ==========================================
+
+            # 3. EXECUTE QUEUE
             for i, step in enumerate(steps):
                 if self._cancel_flag:
                     self.state["status"] = "cancelled"
