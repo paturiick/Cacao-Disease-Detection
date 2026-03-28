@@ -13,9 +13,8 @@ class CacaoDetectionLog(models.Model):
     def __str__(self):
         return f"[{self.session_id[-6:]}] Healthy: {self.healthy_count} | Unhealthy: {self.unhealthy_count}"
 
-# --- NEW: Table for individual cacao pods ---
 class DetectedCacao(models.Model):
-    # This links the pod directly to the specific flight session
+
     session = models.ForeignKey(CacaoDetectionLog, related_name='detected_pods', on_delete=models.CASCADE)
     
     # The unique ID assigned by the BoT-SORT tracker
