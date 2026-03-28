@@ -1,35 +1,37 @@
 # apps/detections/views.py
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from django.db.models import Sum
 from .models import CacaoDetectionLog
 
 @require_GET
 def get_detection_stats(request):
     """
-    Returns the total healthy and unhealthy counts for a specific flight session.
+    Returns the total healthy/unhealthy counts and a list of all individual pods for a specific flight.
     """
     session_id = request.GET.get('session_id')
     
     if not session_id:
-         return JsonResponse({
-             "status": "error", 
-             "message": "Missing session_id parameter"
-         }, status=400)
+         return JsonResponse({"status": "error", "message": "Missing session_id parameter"}, status=400)
 
-    flight_logs = CacaoDetectionLog.objects.filter(session_id=session_id)
+    log = CacaoDetectionLog.objects.filter(session_id=session_id).first()
     
-    totals = flight_logs.aggregate(
-        total_healthy=Sum('healthy_count'),
-        total_unhealthy=Sum('unhealthy_count')
-    )
-    
-    healthy_total = totals['total_healthy'] or 0
-    unhealthy_total = totals['total_unhealthy'] or 0
+    if not log:
+        # Return zeros if the session just started and nothing is detected yet
+        return JsonResponse({
+            "status": "success",
+            "session_id": session_id,
+            "healthy_count": 0,
+            "unhealthy_count": 0,
+            "pods": []
+        })
+
+    # Grab all the individual pods linked to this session
+    pods = list(log.detected_pods.values('track_id', 'status', 'last_seen'))
         
     return JsonResponse({
         "status": "success",
         "session_id": session_id,
-        "healthy_count": healthy_total,
-        "unhealthy_count": unhealthy_total
+        "healthy_count": log.healthy_count,
+        "unhealthy_count": log.unhealthy_count,
+        "pods": pods
     })

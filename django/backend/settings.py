@@ -56,9 +56,7 @@ INSTALLED_APPS = [
     "apps.missions",
     "apps.live",
     "apps.mapping",
-    "apps.detections",
-    "apps.reports",
-
+    "apps.detections.apps.DetectionsConfig",
 ]
 
 MIDDLEWARE = [

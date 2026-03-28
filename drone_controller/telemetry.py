@@ -31,7 +31,16 @@ class TelemetryReceiver:
 
     def stop(self):
         self._stop.set()
+        
+        if self.thread.is_alive():
+            self.thread.join(timeout=1.5)
 
+        try:
+            self.sock.close()
+        except Exception as e:
+            print(f"Error closing socket: {e}")
+
+        
     def _parse(self, msg: str) -> dict:
         out = {}
         for part in msg.strip().split(";"):
@@ -42,48 +51,52 @@ class TelemetryReceiver:
         return out
 
     def _run(self):
-        while not self._stop.is_set():
-            try:
-                data, _ = self.sock.recvfrom(2048)
-            except socket.timeout:
-                continue
+        try:
+            while not self._stop.is_set():
+                try:
+                    data, _ = self.sock.recvfrom(2048)
+                except socket.timeout:
+                    continue
             
-            msg = data.decode("utf-8", errors="ignore")
-            d = self._parse(msg)
+                # THIS MUST BE INSIDE THE WHILE LOOP!
+                msg = data.decode("utf-8", errors="ignore")
+                d = self._parse(msg)
 
-            # Parse ALL flight data safely
-            try:
-                bat = int(float(d.get("bat", 0)))
-                alt_m = float(d.get("h", 0)) / 100.0
-                pitch, roll, yaw = int(float(d.get("pitch", 0))), int(float(d.get("roll", 0))), int(float(d.get("yaw", 0)))
-                tof_cm = int(float(d.get("tof", 0)))
-                temp_c, templ_c = int(float(d.get("temph", 0))), int(float(d.get("templ", 0)))
-                
-                # New fields: Velocity, Acceleration, Baro, Time
-                vgx, vgy, vgz = int(float(d.get("vgx", 0))), int(float(d.get("vgy", 0))), int(float(d.get("vgz", 0)))
-                agx, agy, agz = float(d.get("agx", 0)), float(d.get("agy", 0)), float(d.get("agz", 0))
-                baro = float(d.get("baro", 0))
-                flight_time = int(float(d.get("time", 0)))
-            except Exception:
-                bat, alt_m, pitch, roll, yaw, tof_cm, temp_c, templ_c = 0, 0.0, 0, 0, 0, 0, 0, 0
-                vgx, vgy, vgz, agx, agy, agz, baro, flight_time = 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0
-                
-            try:
-                lat, lon = float(d.get("lat", 0.0)), float(d.get("lon", 0.0))
-            except Exception:
-                lat, lon = 0.0, 0.0
+                # Parse ALL flight data safely
+                try:
+                    bat = int(float(d.get("bat", 0)))
+                    alt_m = float(d.get("h", 0)) / 100.0
+                    pitch, roll, yaw = int(float(d.get("pitch", 0))), int(float(d.get("roll", 0))), int(float(d.get("yaw", 0)))
+                    tof_cm = int(float(d.get("tof", 0)))
+                    temp_c, templ_c = int(float(d.get("temph", 0))), int(float(d.get("templ", 0)))
+                    
+                    # New fields: Velocity, Acceleration, Baro, Time
+                    vgx, vgy, vgz = int(float(d.get("vgx", 0))), int(float(d.get("vgy", 0))), int(float(d.get("vgz", 0)))
+                    agx, agy, agz = float(d.get("agx", 0)), float(d.get("agy", 0)), float(d.get("agz", 0))
+                    baro = float(d.get("baro", 0))
+                    flight_time = int(float(d.get("time", 0)))
+                except Exception:
+                    bat, alt_m, pitch, roll, yaw, tof_cm, temp_c, templ_c = 0, 0.0, 0, 0, 0, 0, 0, 0
+                    vgx, vgy, vgz, agx, agy, agz, baro, flight_time = 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0
+                    
+                try:
+                    lat, lon = float(d.get("lat", 0.0)), float(d.get("lon", 0.0))
+                except Exception:
+                    lat, lon = 0.0, 0.0
 
-            with self._lock:
-                self._state.update({
-                    "battery": bat, "alt_m": alt_m,
-                    "pitch": pitch, "roll": roll, "yaw": yaw,
-                    "tof_cm": tof_cm, "temp_c": temp_c, "templ_c": templ_c,
-                    "vgx": vgx, "vgy": vgy, "vgz": vgz,
-                    "agx": agx, "agy": agy, "agz": agz,
-                    "baro": baro, "flight_time": flight_time,
-                    "gps_lat": lat, "gps_lon": lon,
-                    "raw": msg, "updated_at": time.time(),
-                })
+                with self._lock:
+                    self._state.update({
+                        "battery": bat, "alt_m": alt_m,
+                        "pitch": pitch, "roll": roll, "yaw": yaw,
+                        "tof_cm": tof_cm, "temp_c": temp_c, "templ_c": templ_c,
+                        "vgx": vgx, "vgy": vgy, "vgz": vgz,
+                        "agx": agx, "agy": agy, "agz": agz,
+                        "baro": baro, "flight_time": flight_time,
+                        "gps_lat": lat, "gps_lon": lon,
+                        "raw": msg, "updated_at": time.time(),
+                    })
+        finally:
+            self.sock.close()
 
     def get(self) -> dict:
         with self._lock:

@@ -32,9 +32,12 @@ const handleToggle = async () => {
       activeSessionId.value = null;
     }
   } catch (e) {
-    console.error("Hardware Camera Toggle Failed:", e);
+    console.error(`Hardware Camera Toggle (${action}) Failed:`, e);
   } finally {
-    isLoading.value = false;
+ 
+    setTimeout(() => {
+      isLoading.value = false;
+    }, 1500); 
   }
 };
 </script>

@@ -142,8 +142,6 @@ class MissionExecutor:
                 if not response or not getattr(response, 'ok', False):
                      raise Exception(f"Drone rejected command: {step.cmd}")
 
-                # 3. PHYSICAL MOVEMENT DELAY
-                # We wait to allow the drone to reach the destination physically
                 time.sleep(max(2.0, step.delay_s)) 
 
             self.state["status"] = "completed"
