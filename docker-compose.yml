@@ -2,6 +2,7 @@ services:
   db:
     image: postgis/postgis:15-3.3
     container_name: cacao_db_container
+    restart: unless-stopped
     env_file:
       - ./django/.env
     ports:
@@ -17,6 +18,7 @@ services:
   backend:
     build: ./django  
     container_name: cacao_backend_container
+    restart: unless-stopped
     env_file:
       - ./django/.env
     ports:
@@ -41,6 +43,7 @@ services:
   frontend:
     build: ./web
     container_name: cacao_frontend_container
+    restart: unless-stopped
     ports:
       - "3000:3000"    
       - "24678:24678" 

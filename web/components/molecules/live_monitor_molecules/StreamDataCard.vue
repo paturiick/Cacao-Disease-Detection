@@ -3,45 +3,53 @@ import { ref, watch, onUnmounted } from 'vue';
 import { useTelemetry } from "~/components/composables/useTelemetry"; 
 import { isStreamActive, activeSessionId } from '~/components/composables/droneStore';
 import BaseCard from '~/components/atoms/BaseCard.vue';
+import { detectionApi } from '~/sections/api/detectionApi'; 
 
 const { telemetryState } = useTelemetry();
 
-// Local state to hold the live AI counts
 const healthyCount = ref(0);
 const diseasedCount = ref(0);
+const sickPods = ref([]);
 
 let pollInterval = null;
 
-// The background worker that pings Django for the current session's counts
 const fetchSessionStats = async () => {
+  // DEBUG LOG 1: Tells us if the timer is actually looping and what ID it sees
+  console.log("[DEBUG] Timer fired! Current Session ID:", activeSessionId.value);
+  
   // Only ask for data if we actually have a session ID
   if (!activeSessionId.value) return;
   
   try {
-    const response = await $fetch(`http://localhost:8000/detections/stats/?session_id=${activeSessionId.value}`);
+    const data = await detectionApi.getSessionStats(activeSessionId.value);
     
-    if (response) {
-      healthyCount.value = response.healthy_count || 0;
-      diseasedCount.value = response.unhealthy_count || 0;
+    if (data) {
+      healthyCount.value = data.healthy_count || 0;
+      diseasedCount.value = data.unhealthy_count || 0;
+      
+      // Filter out only the unhealthy pods to display in the UI
+      sickPods.value = (data.pods || []).filter(pod => pod.status === 'unhealthy');
     }
   } catch (error) {
-    // Only log errors if it's not a generic network timeout
-    console.error("Failed to fetch AI stats:", error);
+    console.error("Stats polling failed:", error.message);
   }
 };
 
 // Watch the global stream state. 
-// If it turns ON, reset the numbers and start polling. If OFF, stop polling.
 watch(isStreamActive, (isActive) => {
+  // DEBUG LOG 2: Tells us if the UI button is successfully updating the global state
+  console.log("[DEBUG] Stream State Changed! Is Active:", isActive, "| Session ID:", activeSessionId.value);
+
   if (isActive) {
     healthyCount.value = 0;
     diseasedCount.value = 0;
+    sickPods.value = []; // Reset the list on new stream
     // Check for new pods every 2 seconds
     pollInterval = setInterval(fetchSessionStats, 2000);
   } else {
     if (pollInterval) clearInterval(pollInterval);
   }
-}, { immediate: true }); // immediate: true catches cases where the stream is already active on mount
+}, { immediate: true }); 
 
 // Clean up the timer if the user leaves the page
 onUnmounted(() => {
@@ -88,6 +96,26 @@ onUnmounted(() => {
             <span class="text-3xl font-black text-red-800 z-10">{{ diseasedCount }}</span>
           </div>
         </div>
+
+        <div v-if="sickPods.length > 0" class="flex flex-col gap-2 mt-4 bg-red-50/50 p-3 rounded-xl border border-red-100">
+          <p class="text-[10px] font-bold text-red-600 uppercase tracking-widest flex items-center justify-between">
+            <span>Critical Detections</span>
+            <span class="bg-red-500 text-white px-1.5 py-0.5 rounded-full text-[9px]">{{ sickPods.length }}</span>
+          </p>
+          
+          <div class="max-h-32 overflow-y-auto pr-1 space-y-1.5 scrollbar-thin scrollbar-thumb-red-200">
+            <div v-for="pod in sickPods" :key="pod.track_id" class="flex items-center justify-between bg-white px-2 py-1.5 rounded text-xs border border-red-100 shadow-sm">
+              <span class="font-bold text-slate-700">Pod #{{ pod.track_id }}</span>
+              <div class="flex items-center gap-2">
+                <span class="text-[9px] font-bold text-red-500 uppercase">{{ pod.status }}</span>
+                <span class="text-[9px] text-slate-400">
+                  {{ new Date(pod.last_seen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <div class="space-y-3">
