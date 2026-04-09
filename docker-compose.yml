@@ -2,7 +2,7 @@ services:
   db:
     image: postgis/postgis:15-3.3
     container_name: cacao_db_container
-    restart: unless-stopped
+    restart: on-failure:5
     env_file:
       - ./django/.env
     ports:
@@ -18,7 +18,7 @@ services:
   backend:
     build: ./django  
     container_name: cacao_backend_container
-    restart: unless-stopped
+    restart: on-failure:5
     env_file:
       - ./django/.env
     ports:
@@ -39,20 +39,6 @@ services:
             - driver: nvidia
               device_ids: ['0'] 
               capabilities: [gpu]
-  
-  frontend:
-    build: ./web
-    container_name: cacao_frontend_container
-    restart: unless-stopped
-    ports:
-      - "3000:3000"    
-      - "24678:24678" 
-    volumes:
-      - ./web:/app
-      - /app/node_modules
-      - /app/.nuxt
-    depends_on:
-      - backend
 
 volumes:
   postgis_data:
