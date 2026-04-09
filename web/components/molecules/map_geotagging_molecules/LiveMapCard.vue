@@ -37,11 +37,18 @@ const zoomOut = () => {
 
 <template>
   <BaseCard class="h-full flex flex-col">
-    <div class="flex items-center gap-2 mb-4 border-b border-gray-100 pb-2 shrink-0">
+    
+    <div class="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2 shrink-0">
       <div class="w-5 h-5 text-gray-600">
          <IconMap />
       </div>
       <h3 class="font-bold text-gray-700 font-poppins text-sm">Live Map View</h3>
+    </div>
+
+    <div class="flex items-center justify-between mb-3 bg-slate-50 p-2.5 px-4 rounded-lg border border-slate-100 shrink-0 shadow-sm">
+      <span class="font-mono text-sm font-black text-slate-800">
+        {{ gpsData.lat?.toFixed(6) ?? '0.000000' }}, {{ gpsData.lng?.toFixed(6) ?? '0.000000' }}
+      </span>
     </div>
 
     <div class="flex-1 min-h-[400px] relative rounded-lg overflow-hidden border border-gray-200 bg-slate-50">

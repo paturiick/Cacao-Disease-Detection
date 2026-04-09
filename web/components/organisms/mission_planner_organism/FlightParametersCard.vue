@@ -19,18 +19,6 @@ defineEmits(['update:modelValue']);
       <LabeledInput v-model="modelValue.speed" label="Speed (cm/s)" type="number" />
       <LabeledInput v-model="modelValue.mode" label="Flight Mode" class="col-span-2 " readonly/>
       
-      <div class="col-span-2 flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg mt-2">
-        <div class="flex flex-col">
-          <span class="text-sm font-bold text-slate-700">Downward Camera</span>
-          <span class="text-[10px] text-slate-500 font-medium">Enable Mission Pad detection</span>
-        </div>
-        
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" v-model="modelValue.missionPad" class="sr-only peer">
-          <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#658D1B]"></div>
-        </label>
-      </div>
-      
     </div>
   </BaseCard>
 </template>
