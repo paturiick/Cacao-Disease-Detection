@@ -8,23 +8,15 @@ defineProps({
   gpsData: {
     type: Object,
     required: true
+  },
+  // Added this so you can pass dynamic trees from the parent later!
+  trees: {
+    type: Array,
+    default: () => []
   }
 });
 
-// The cleaned coordinate data
-const treeData = [
-  { id: 1, lat: 8.49918863, lng: 124.3104652, accuracy: 5.3 },
-  { id: 2, lat: 8.49923029, lng: 124.3104417, accuracy: 3.8 },
-  { id: 3, lat: 8.49922576, lng: 124.3104494, accuracy: 4.0 },
-  { id: 4, lat: 8.49922259, lng: 124.3104528, accuracy: 3.8 },
-  { id: 5, lat: 8.49922109, lng: 124.3104137, accuracy: 3.8 },
-  { id: 6, lat: 8.49921659, lng: 124.3103844, accuracy: 3.8 },
-  { id: 7, lat: 8.49919957, lng: 124.3104353, accuracy: 3.8 },
-  { id: 8, lat: 8.49919746, lng: 124.3104406, accuracy: 3.8 },
-  { id: 9, lat: 8.49919372, lng: 124.3104466, accuracy: 3.8 },
-];
-
-const currentZoom = ref(21);
+const currentZoom = ref(19);
 
 const zoomIn = () => {
   if (currentZoom.value < 22) currentZoom.value += 1;
@@ -47,7 +39,7 @@ const zoomOut = () => {
 
     <div class="flex items-center justify-between mb-3 bg-slate-50 p-2.5 px-4 rounded-lg border border-slate-100 shrink-0 shadow-sm">
       <span class="font-mono text-sm font-black text-slate-800">
-        {{ gpsData.lat?.toFixed(6) ?? '0.000000' }}, {{ gpsData.lng?.toFixed(6) ?? '0.000000' }}
+        Drone Position: {{ gpsData.lat?.toFixed(6) ?? '0.000000' }}, {{ gpsData.lng?.toFixed(6) ?? '0.000000' }}
       </span>
     </div>
 
@@ -75,7 +67,7 @@ const zoomOut = () => {
         :lat="gpsData.lat"
         :lng="gpsData.lng"
         :zoom="currentZoom"
-        :trees="treeData" 
+        :trees="trees" 
         class="w-full h-full z-0"
       />
       
