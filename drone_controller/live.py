@@ -20,6 +20,26 @@ class VideoReceiver:
         self._current_stop_event = None 
         self.current_session_id = None
 
+        self.is_recording = False
+        self.video_writer = None
+        self.recordings_dir = os.path.join(os.path.dirname(__file__), "recordings")
+        os.makedirs(self.recordings_dir, exist_ok=True)
+    
+    def start_recording(self):
+        with self._lock:
+            if not self.is_recording:
+                self.is_recording = True
+                self.video_writer = None # Will be initialized by the thread on the next frame
+                print("[VIDEO] Recording scheduled to start.")
+
+    def stop_recording(self):
+        with self._lock:
+            self.is_recording = False
+            if self.video_writer:
+                self.video_writer.release()
+                self.video_writer = None
+                print("[VIDEO] Recording saved successfully.")
+
     def start(self):
         """Starts the background decoding thread instantly without blocking."""
         if self.thread and self.thread.is_alive():
@@ -89,6 +109,17 @@ class VideoReceiver:
                             except (KeyError, TypeError, ValueError):
                                 continue
 
+                        if self.is_recording:
+                            if self.video_writer is None:
+                                height, width = frame.shape[:2]
+                                date_str = time.strftime("%Y-%m-%d_%H-%M-%S")
+                                filename = os.path.join(self.recordings_dir, f"flight_{date_str}.mp4")
+
+                                fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
+                                self.video_writer = cv2.VideoWriter(filename, fourcc, 30.0, (width, height))
+                            
+                            self.video_writer.write(frame)
+
                     ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
                     if ret:
                         with self._lock:
@@ -97,6 +128,8 @@ class VideoReceiver:
                     time.sleep(0.01)
         finally:
             # Safely release this thread's specific capture object before dying
+            if self.video_writer:
+                self.video_writer.release()
             cap.release()
             print("[VIDEO] Port freed successfully.")
 

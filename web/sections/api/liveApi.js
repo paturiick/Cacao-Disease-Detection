@@ -27,6 +27,15 @@ export const liveApi = {
   }),
 
   /**
+   * Sends the command to the backend to start or stop saving the stream to an MP4.
+   * @param {string} action - 'start' or 'stop'
+   */
+  toggleRecording: (action) => jfetch('/api/live/record/', { 
+    method: 'POST', 
+    body: JSON.stringify({ command: action }) 
+  }),
+
+  /**
    * Returns the static endpoint for the MJPEG feed.
    */
   getStreamUrl: () => `${BASE}/api/live/feed/`

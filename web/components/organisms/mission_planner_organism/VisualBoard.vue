@@ -9,7 +9,7 @@ const props = defineProps({
 });
 
 // --- SCALE SETTINGS ---
-const CM_TO_PX = 15; 
+const CM_TO_PX = 5; 
 
 // --- STATE: POSITION & ZOOM ---
 const currentDronePos = ref({ x: 0, y: 0 });

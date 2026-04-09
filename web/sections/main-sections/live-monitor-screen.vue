@@ -78,6 +78,7 @@ onUnmounted(() => {
       <DashboardNavBar active-page="live-monitor" :droneStatus="signalStatus" :battery="telemetryState.battery"/>
     </div>
 
+
     <Transition
       enter-active-class="transition duration-300 ease-out"
       enter-from-class="transform -translate-y-4 opacity-0 scale-95"

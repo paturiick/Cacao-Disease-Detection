@@ -9,6 +9,8 @@ dist
 .venv/
 django/.venv/
 
+drone_controller/recordings
+
 # Node dependencies
 node_modules
 
