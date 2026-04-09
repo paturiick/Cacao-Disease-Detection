@@ -6,7 +6,7 @@ import { useTelemetry } from '~/components/composables/useTelemetry';
 
 // --- Components ---
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
-import GPSDataCard from '~/components/molecules/map_geotagging_molecules/GPSDataCard.vue';
+import DataCard from '~/components/molecules/map_geotagging_molecules/DataCard.vue';
 import TreeDataCard from '~/components/molecules/map_geotagging_molecules/TreeDataCard.vue';
 import LiveMapCard from '~/components/molecules/map_geotagging_molecules/LiveMapCard.vue';
 
@@ -86,11 +86,11 @@ onUnmounted(() => {
       <div class="flex flex-col xl:flex-row gap-6 h-full max-w-[1800px] mx-auto">
         
         <div class="w-full xl:w-1/5 min-w-[300px] flex flex-col h-full overflow-y-auto">
-          <GPSDataCard :data="gpsData" />
+          <DataCard :data="gpsData" />
         </div>
         
         <div class="w-full xl:w-2/5 h-full">
-          <TreeDataCard :detected-trees="detectedTreesArray" />
+          <TreeDataCard :detected-trees="detectedTrees" />
         </div>
 
         <div class="w-full xl:flex-1 h-full">
