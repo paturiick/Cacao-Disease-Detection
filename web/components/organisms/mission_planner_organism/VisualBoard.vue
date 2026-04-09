@@ -9,14 +9,14 @@ const props = defineProps({
 });
 
 // --- SCALE SETTINGS ---
-const CM_TO_PX = 5; 
+const CM_TO_PX = 1; 
 
 // --- STATE: POSITION & ZOOM ---
 const currentDronePos = ref({ x: 0, y: 0 });
 const currentDroneYaw = ref(0);
 const zoomMultiplier = ref(1);
-const MIN_ZOOM = 0.2; 
-const MAX_ZOOM = 1.5; 
+const MIN_ZOOM = 1.0; 
+const MAX_ZOOM = 3.0; 
 
 // --- STATE: PANNING & INTERACTION ---
 const panOffset = ref({ x: 0, y: 0 });
@@ -35,13 +35,10 @@ const handleZoomReset = () => {
   panOffset.value = { x: 0, y: 0 }; 
 };
 
-// NEW: Instantly snap the camera back to the drone's current position
 const handleRecenter = () => {
   const { minX, maxX, minY, maxY } = visualData.value;
   const centerX = (maxX + minX) / 2;
   const centerY = (maxY + minY) / 2;
-  
-  // Calculate exactly how far off-center the drone is, and offset the pan to match
   panOffset.value = {
     x: currentDronePos.value.x - centerX,
     y: currentDronePos.value.y - centerY
@@ -67,7 +64,6 @@ const handlePointerMove = (e) => {
   const currentX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
   const currentY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
   
-  // Track mouse for tooltip positioning
   mousePos.value = { x: currentX, y: currentY };
 
   if (!isDragging.value) return;
@@ -115,18 +111,12 @@ const visualData = computed(() => {
       y += (localX * Math.sin(rad)) - (localY * Math.cos(rad)); 
       labelPrefix = 'GO'; val = cmd.val;
     } 
-    // NEW: Handle the 5th parameter for the RC Command
     else if (cmd.type === 'rc') {
       const parts = String(cmd.val).split(' ');
-      const a = parts[0] || 0;
-      const b = parts[1] || 0;
-      const c = parts[2] || 0;
-      const d = parts[3] || 0;
-      const duration = parts[4] || 1; // Extract the 5th parameter for the label
-      
+      const a = parts[0] || 0, b = parts[1] || 0, c = parts[2] || 0, d = parts[3] || 0, duration = parts[4] || 1; 
       labelPrefix = 'RC';
-      val = `[${a}, ${b}, ${c}, ${d}]`;
-      unit = ` for ${duration}s`;
+      val = `[${a},${b},${c},${d}]`;
+      unit = ` ${duration}s`;
     }
     else if (cmd.type === 'cw') { currentYaw += val; unit = '°'; } 
     else if (cmd.type === 'ccw') { currentYaw -= val; unit = '°'; } 
@@ -152,20 +142,19 @@ const visualData = computed(() => {
       if (normAngle > 180) normAngle -= 360;
       if (normAngle <= -180) normAngle += 360;
       
-      // INCREASED OFFSET FOR LARGER TEXT PILLS
-      if (normAngle > 90 || normAngle < -90) { textRotation += 180; textDy = 28; } 
-      else { textDy = -28; }
+      // Push labels slightly further out so they don't overlap thicker lines
+      if (normAngle > 90 || normAngle < -90) { textRotation += 180; textDy = 22; } 
+      else { textDy = -22; }
     } else {
       const key = `${Math.round(x)},${Math.round(y)}`;
       if (!nodeStackMap[key]) nodeStackMap[key] = 0;
-      // INCREASED STACK OFFSET FOR LARGER TEXT PILLS
-      textDy = 38 + (nodeStackMap[key] * 42); 
+      textDy = 34 + (nodeStackMap[key] * 34); 
       nodeStackMap[key]++;
     }
 
     segments.push({
       id: cmd.id || idx, 
-      stepNum: idx + 1, // Store step number for tooltip
+      stepNum: idx + 1, 
       type: cmd.type, 
       label: labelText,
       startX, startY, endX: x, endY: y, endYaw: currentYaw,
@@ -207,19 +196,18 @@ const svgViewBox = computed(() => {
   return `${cx - finalW/2} ${cy - finalH/2} ${finalW} ${finalH}`;
 });
 
-// INCREASED BASE SCALE SO IT DOESN'T SHRINK AS MUCH WHEN ZOOMING OUT
-const labelScale = computed(() => Math.max(1.2, zoomMultiplier.value * 1.5));
+// Slightly increased label scale to match thicker lines
+const labelScale = computed(() => Math.max(0.8, zoomMultiplier.value * 1.1));
 
-// Helper for hover styling
 const getOpacity = (segId) => {
   if (hoveredSegId.value === null) return 1;
-  return hoveredSegId.value === segId ? 1 : 0.3; // Dim others
+  return hoveredSegId.value === segId ? 1 : 0.3; 
 };
 </script>
 
 <template>
   <div 
-    class="flex flex-col h-full bg-[#F8FAFC] relative z-0 overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.02)] border-l border-slate-200 rounded-r-lg"
+    class="flex flex-col h-full bg-[#F8FAFC] relative z-0 overflow-hidden rounded-xl border border-slate-200"
     @wheel.prevent="handleWheel"
     @mousemove="handlePointerMove"
     @mousedown="handlePointerDown"
@@ -231,53 +219,51 @@ const getOpacity = (segId) => {
   >
     <div 
       v-if="hoveredSegmentData"
-      class="fixed z-50 pointer-events-none transition-opacity duration-150 bg-[#0F172A] text-white px-3 py-2 rounded-lg shadow-xl border border-slate-700 w-48"
+      class="fixed z-50 pointer-events-none transition-opacity duration-150 bg-white text-slate-800 px-4 py-3 rounded-xl shadow-xl border border-slate-200 w-52 backdrop-blur-md bg-white/90"
       :style="{ left: mousePos.x + 15 + 'px', top: mousePos.y + 15 + 'px' }"
     >
-      <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Step {{ hoveredSegmentData.stepNum }} of {{ queue.length }}</div>
-      <div class="text-sm font-black text-[#84CC16] leading-tight mb-2">{{ hoveredSegmentData.label }}</div>
-      <div class="flex flex-col gap-1 text-[10px] font-medium text-slate-300">
-        <div class="flex justify-between">
-          <span>Start:</span>
-          <span class="font-mono">{{ Math.round(hoveredSegmentData.startX / CM_TO_PX) }}, {{ -Math.round(hoveredSegmentData.startY / CM_TO_PX) }}</span>
+      <div class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Step {{ hoveredSegmentData.stepNum }} of {{ queue.length }}</div>
+      <div class="text-sm font-black text-[#658D1B] leading-tight mb-3">{{ hoveredSegmentData.label }}</div>
+      <div class="flex flex-col gap-1.5 text-[10px] font-bold text-slate-500">
+        <div class="flex justify-between items-center bg-slate-50 px-2 py-1.5 rounded">
+          <span>START</span>
+          <span class="font-mono text-slate-700">{{ Math.round(hoveredSegmentData.startX / CM_TO_PX) }}, {{ -Math.round(hoveredSegmentData.startY / CM_TO_PX) }}</span>
         </div>
-        <div class="flex justify-between">
-          <span>End:</span>
-          <span class="font-mono">{{ Math.round(hoveredSegmentData.endX / CM_TO_PX) }}, {{ -Math.round(hoveredSegmentData.endY / CM_TO_PX) }}</span>
+        <div class="flex justify-between items-center bg-slate-50 px-2 py-1.5 rounded">
+          <span>END</span>
+          <span class="font-mono text-slate-700">{{ Math.round(hoveredSegmentData.endX / CM_TO_PX) }}, {{ -Math.round(hoveredSegmentData.endY / CM_TO_PX) }}</span>
         </div>
       </div>
     </div>
 
-    <div v-if="props.mode !== 'rc'" class="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-md px-3 py-2 rounded-full border border-slate-200 shadow-sm flex items-center gap-2 pointer-events-none">
-       <span class="relative flex h-2 w-2">
+    <div v-if="props.mode !== 'rc'" class="absolute top-4 left-4 z-10 bg-white/80 backdrop-blur-md px-3 py-2 rounded-lg border border-slate-200 shadow-sm flex items-center gap-2 pointer-events-none">
+       <span class="relative flex h-2.5 w-2.5">
          <span v-if="props.isRunning" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#658D1B] opacity-75"></span>
-         <span class="relative inline-flex rounded-full h-2 w-2" :class="props.isRunning ? 'bg-[#658D1B]' : 'bg-slate-400'"></span>
+         <span class="relative inline-flex rounded-full h-2.5 w-2.5" :class="props.isRunning ? 'bg-[#658D1B]' : 'bg-slate-300'"></span>
        </span>
-       <span class="text-[11px] font-black text-slate-700 uppercase tracking-widest">Drone Command Visualization</span>
+       <span class="text-[10px] font-black text-slate-600 uppercase tracking-widest">Flight Map</span>
     </div>
 
-    <div class="absolute top-4 right-4 z-10 flex flex-col items-center pointer-events-none opacity-80">
-      <svg class="w-6 h-8 filter drop-shadow-md" viewBox="0 0 24 32">
+    <div class="absolute top-4 right-4 z-10 flex flex-col items-center pointer-events-none opacity-60">
+      <svg class="w-5 h-7 filter drop-shadow-sm" viewBox="0 0 24 32">
         <path d="M12 0 L18 16 L12 12 L6 16 Z" fill="#EF4444" />
-        <path d="M12 32 L18 16 L12 12 L6 16 Z" fill="#CBD5E1" />
-        <circle cx="12" cy="14" r="2" fill="white" />
+        <path d="M12 32 L18 16 L12 12 L6 16 Z" fill="#94A3B8" />
       </svg>
-      <span class="text-[11px] font-black text-slate-600 mt-1 uppercase tracking-widest">N</span>
+      <span class="text-[10px] font-black text-slate-500 mt-1 uppercase tracking-widest">N</span>
     </div>
 
-    <div class="absolute bottom-6 right-4 z-10 flex flex-col bg-white/90 backdrop-blur-md rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-      <button @click="handleRecenter" title="Recenter on Drone" class="p-2 text-slate-600 hover:bg-slate-100 hover:text-[#38BDF8] border-b border-slate-200 transition-colors">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+    <div class="absolute bottom-6 right-4 z-10 flex flex-col bg-white/90 backdrop-blur-md rounded-xl border border-slate-200 shadow-lg overflow-hidden">
+      <button @click="handleRecenter" title="Recenter on Drone" class="p-2.5 text-slate-500 hover:bg-slate-50 hover:text-[#658D1B] border-b border-slate-100 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
       </button>
-      
-      <button @click="handleZoomIn" :disabled="zoomMultiplier <= MIN_ZOOM" class="p-2 text-slate-600 hover:bg-slate-100 hover:text-[#658D1B] border-b border-slate-100 transition-colors disabled:opacity-30">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+      <button @click="handleZoomIn" :disabled="zoomMultiplier <= MIN_ZOOM" class="p-2.5 text-slate-500 hover:bg-slate-50 hover:text-[#658D1B] border-b border-slate-100 transition-colors disabled:opacity-30">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
       </button>
-      <button @click="handleZoomReset" class="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 border-b border-slate-100 transition-colors">
-        <svg class="w-4 h-4 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+      <button @click="handleZoomReset" class="p-2.5 text-slate-400 hover:bg-slate-50 hover:text-slate-700 border-b border-slate-100 transition-colors">
+        <svg class="w-4 h-4 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l-5 5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
       </button>
-      <button @click="handleZoomOut" :disabled="zoomMultiplier >= MAX_ZOOM" class="p-2 text-slate-600 hover:bg-slate-100 hover:text-[#658D1B] transition-colors disabled:opacity-30">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+      <button @click="handleZoomOut" :disabled="zoomMultiplier >= MAX_ZOOM" class="p-2.5 text-slate-500 hover:bg-slate-50 hover:text-[#658D1B] transition-colors disabled:opacity-30">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"></path></svg>
       </button>
     </div>
 
@@ -287,14 +273,27 @@ const getOpacity = (segId) => {
       :class="isDragging ? 'cursor-grabbing' : 'cursor-grab'"
     >
       <defs>
-        <pattern id="grid" width="200" height="200" patternUnits="userSpaceOnUse">
-          <path d="M 200 0 L 0 0 0 200" fill="none" stroke="#E2E8F0" stroke-width="1.5" />
+        <pattern id="dotGrid" width="100" height="100" patternUnits="userSpaceOnUse">
+          <circle cx="2" cy="2" r="2" fill="#CBD5E1" opacity="0.8" />
         </pattern>
+        <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#0F172A" flood-opacity="0.12" />
+        </filter>
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#658D1B" flood-opacity="0.4" />
+        </filter>
       </defs>
 
-      <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#grid)" />
-      <line x1="-50000" y1="0" x2="50000" y2="0" stroke="#CBD5E1" stroke-width="3" opacity="0.6" />
-      <line x1="0" y1="-50000" x2="0" y2="50000" stroke="#CBD5E1" stroke-width="3" opacity="0.6" />
+      <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#dotGrid)" />
+      
+      <line x1="-50000" y1="0" x2="50000" y2="0" stroke="#E2E8F0" stroke-width="2" opacity="0.8" />
+      <line x1="0" y1="-50000" x2="0" y2="50000" stroke="#E2E8F0" stroke-width="2" opacity="0.8" />
+
+      <g filter="url(#soft-shadow)">
+        <circle cx="0" cy="0" r="30" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="3" stroke-dasharray="6 6" />
+        <circle cx="0" cy="0" r="6" fill="#94A3B8" />
+        <text x="0" y="-40" font-size="12" font-weight="800" fill="#94A3B8" text-anchor="middle" letter-spacing="1">HOME</text>
+      </g>
 
       <g 
         v-for="seg in visualData.segments" 
@@ -308,63 +307,79 @@ const getOpacity = (segId) => {
           v-if="seg.isMovement"
           :x1="seg.startX" :y1="seg.startY" 
           :x2="seg.endX" :y2="seg.endY" 
-          :stroke="seg.isActive ? '#658D1B' : '#0F172A'" 
-          :stroke-width="hoveredSegId === seg.id || seg.isActive ? 4 : 2" 
+          :stroke="seg.isActive ? '#658D1B' : '#94A3B8'" 
+          :stroke-width="hoveredSegId === seg.id || seg.isActive ? 8 : 5" 
+          stroke-linecap="round"
+          :stroke-dasharray="seg.isActive ? 'none' : '12, 12'"
+          :filter="seg.isActive ? 'url(#glow)' : ''"
         />
         
         <circle 
           v-if="seg.isMovement"
           :cx="seg.endX" :cy="seg.endY" 
-          :r="hoveredSegId === seg.id ? 6 : 4.5" 
+          :r="hoveredSegId === seg.id || seg.isActive ? 10 : 7" 
           fill="#FFFFFF" 
-          :stroke="seg.isActive ? '#658D1B' : '#0F172A'" 
-          stroke-width="2"
+          :stroke="seg.isActive ? '#658D1B' : '#94A3B8'" 
+          stroke-width="3"
+          filter="url(#soft-shadow)"
+        />
+        <circle 
+          v-if="seg.isMovement && seg.isActive"
+          :cx="seg.endX" :cy="seg.endY" 
+          r="4" 
+          fill="#658D1B" 
         />
 
         <circle 
           v-if="!seg.isMovement"
           :cx="seg.endX" :cy="seg.endY" 
-          :r="seg.isActive || hoveredSegId === seg.id ? 12 : 6" 
-          :fill="seg.isActive ? '#F59E0B' : '#E2E8F0'" 
-          :stroke="seg.isActive ? '#FFF' : '#0F172A'"
-          stroke-width="2"
+          :r="seg.isActive || hoveredSegId === seg.id ? 14 : 10" 
+          :fill="seg.isActive ? '#F59E0B' : '#FFFFFF'" 
+          :stroke="seg.isActive ? '#FFFFFF' : '#F59E0B'"
+          stroke-width="3"
+          filter="url(#soft-shadow)"
         />
 
         <g :transform="`translate(${seg.midX}, ${seg.midY}) scale(${labelScale}) rotate(${seg.textRotation || 0})`">
           <rect 
-            :x="-(seg.label.length * 5) - 16" :y="seg.textDy - 18" 
-            :width="(seg.label.length * 10) + 32" height="36" rx="18" 
-            :fill="seg.isActive ? '#658D1B' : (hoveredSegId === seg.id ? '#1E293B' : '#0F172A')" 
-            fill-opacity="1" stroke="#FFFFFF" stroke-width="2.5"
+            :x="-(seg.label.length * 4.5) - 12" :y="seg.textDy - 13" 
+            :width="(seg.label.length * 9) + 24" height="26" rx="13" 
+            :fill="seg.isActive ? '#658D1B' : '#FFFFFF'" 
+            :fill-opacity="seg.isActive ? 1 : 0.95"
+            :stroke="seg.isActive ? 'none' : '#E2E8F0'" 
+            stroke-width="1.5"
+            filter="url(#soft-shadow)"
           />
           <text 
-            x="0" :y="seg.textDy + 5" 
-            font-size="16" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="Inter, sans-serif" letter-spacing="0.5"
+            x="0" :y="seg.textDy + 4.5" 
+            font-size="11" font-weight="800" 
+            :fill="seg.isActive ? '#FFFFFF' : '#475569'" 
+            text-anchor="middle" font-family="Inter, sans-serif" letter-spacing="0.5"
           >
             {{ seg.label }}
           </text>
         </g>
       </g>
 
-      <g>
-        <circle cx="0" cy="0" r="5" fill="#EF4444" />
-      </g>
-
-      <g :transform="`translate(${currentDronePos.x}, ${currentDronePos.y}) rotate(${currentDroneYaw})`" class="transition-transform duration-[1200ms] ease-in-out pointer-events-none">
-        <ellipse cx="0" cy="14" rx="16" ry="6" fill="rgba(0,0,0,0.06)" />
-        <g>
-          <circle v-if="props.isRunning" cx="0" cy="0" r="26" fill="#84CC16" opacity="0.15" class="animate-pulse" />
-          <path d="M-14,-14 L14,14 M-14,14 L14,-14" stroke="#CBD5E1" stroke-width="6" stroke-linecap="round" />
-          <circle cx="-16" cy="-16" r="7" fill="#F8FAFC" stroke="#94A3B8" stroke-width="2" />
-          <circle cx="16" cy="-16" r="7" fill="#F8FAFC" stroke="#94A3B8" stroke-width="2" />
-          <circle cx="-16" cy="16" r="7" fill="#F8FAFC" stroke="#94A3B8" stroke-width="2" />
-          <circle cx="16" cy="16" r="7" fill="#F8FAFC" stroke="#94A3B8" stroke-width="2" />
-          <rect x="-12" y="-12" width="24" height="24" rx="10" fill="#FFFFFF" stroke="#658D1B" stroke-width="1.5" />
-          <rect x="-8" y="-10" width="16" height="9" rx="4" fill="#0F172A" />
-          <circle cx="-3" cy="-5.5" r="1.5" fill="#38BDF8" />
-          <circle cx="3" cy="-5.5" r="1.5" fill="#38BDF8" />
-          <circle cx="0" cy="7" r="2.5" :fill="props.isRunning ? '#84CC16' : '#F59E0B'" />
-        </g>
+      <g :transform="`translate(${currentDronePos.x}, ${currentDronePos.y}) rotate(${currentDroneYaw}) scale(7)`" class="transition-transform duration-[1200ms] ease-in-out pointer-events-none" filter="url(#soft-shadow)">
+        <circle v-if="props.isRunning" cx="-16" cy="-16" r="10" fill="#CBD5E1" opacity="0.3" class="animate-spin origin-[-16px_-16px]" />
+        <circle v-if="props.isRunning" cx="16" cy="-16" r="10" fill="#CBD5E1" opacity="0.3" class="animate-spin origin-[16px_-16px]" />
+        <circle v-if="props.isRunning" cx="-16" cy="16" r="10" fill="#CBD5E1" opacity="0.3" class="animate-spin origin-[-16px_16px]" />
+        <circle v-if="props.isRunning" cx="16" cy="16" r="10" fill="#CBD5E1" opacity="0.3" class="animate-spin origin-[16px_16px]" />
+        
+        <path d="M-14,-14 L14,14 M-14,14 L14,-14" stroke="#64748B" stroke-width="2" stroke-linecap="round" />
+        
+        <circle cx="-16" cy="-16" r="6" fill="#F8FAFC" stroke="#475569" stroke-width="1.5" />
+        <circle cx="16" cy="-16" r="6" fill="#F8FAFC" stroke="#475569" stroke-width="1.5" />
+        <circle cx="-16" cy="16" r="6" fill="#F8FAFC" stroke="#475569" stroke-width="1.5" />
+        <circle cx="16" cy="16" r="6" fill="#F8FAFC" stroke="#475569" stroke-width="1.5" />
+        
+        <rect x="-12" y="-12" width="24" height="24" rx="8" fill="#FFFFFF" stroke="#658D1B" stroke-width="1.5" />
+        
+        <rect x="-8" y="-14" width="16" height="8" rx="4" fill="#0F172A" />
+        <circle cx="-3" cy="-10" r="1.5" fill="#38BDF8" />
+        
+        <circle cx="0" cy="7" r="2.5" :fill="props.isRunning ? '#84CC16' : '#F1F5F9'" :class="props.isRunning ? 'animate-pulse' : ''" stroke="#E2E8F0" stroke-width="0.5" />
       </g>
     </svg>
   </div>

@@ -15,6 +15,7 @@ import BackwardIcon from '~/assets/icons/Backward.svg';
 import ClockwiseIcon from '~/assets/icons/Clockwise.svg';
 import CounterClockwiseIcon from '~/assets/icons/Counter-clockwise.svg';
 import HoverIcon from '~/assets/icons/Hover.svg';
+
 import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
 import FlightParametersCard from '~/components/organisms/mission_planner_organism/FlightParametersCard.vue';
 import MissionCommandsCard from '~/components/organisms/mission_planner_organism/MissionCommandsCard.vue';
@@ -30,7 +31,8 @@ const isLanding = ref(false);
 const currentStepIndex = ref(-1);
 const isDrawingMode = ref(false);
 
-const currentMode = ref('plan'); 
+// --- NEW: RC Mode State ---
+const currentMode = ref('plan'); // Tracks 'plan' vs 'rc' mode
 
 const flightParams = reactive({ 
   altitude: 2,
@@ -53,10 +55,6 @@ const formattedTelemetry = computed(() => {
   };
 });
 
-const isFlying = computed(() => {
-  return telemetryState.connected && (telemetryState.alt > 0);
-});
-
 const showCompleteModal = ref(false);
 const modalConfig = reactive({
   title: '', message: '', isWarning: false, isSuccess: false, cancelText: 'Close'
@@ -72,8 +70,8 @@ const commandOptions = [
   { label: 'Rotate CW',   value: 'cw',      unit: 'deg', icon: ClockwiseIcon},
   { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: CounterClockwiseIcon},
   { label: 'Hover',       value: 'hover',   unit: 's',   icon: HoverIcon },
-  { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z', icon: ForwardIcon },
-  { label: 'RC Override', value: 'rc', unit: 'a b c d s', icon: HoverIcon }
+  { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z spd', icon: `<svg...` },
+  { label: 'RC Override', value: 'rc', unit: 'a b c d', icon: HoverIcon }
 ];
 
 const decorateStep = (stepDto) => {
@@ -216,6 +214,7 @@ const handleEmergencyLand = async () => {
   try { await missionApi.forceLand(); } catch (e) {} finally { setTimeout(() => { isLanding.value = false; }, 2000); }
 };
 
+// --- NEW: Live RC Operations ---
 const handleLiveRcCommand = async (rcData) => {
   try {
     const rcString = `${rcData.a} ${rcData.b} ${rcData.c} ${rcData.d}`;
@@ -253,14 +252,11 @@ onBeforeUnmount(() => {
     <div class="flex-1 z-10 p-6 overflow-hidden relative">
       <div class="flex flex-col xl:flex-row gap-6 h-full max-w-[1800px] mx-auto transition-all duration-700">
 
-        <div 
-          v-show="currentMode === 'plan'" 
-          class="w-full xl:w-80 flex flex-col gap-6 shrink-0 h-full overflow-y-auto custom-scrollbar pr-2"
-        >
+        <div v-show="currentMode === 'plan'" class="w-full xl:w-80 flex flex-col gap-6 shrink-0 h-full transition-all duration-500">
           <FlightParametersCard v-model="flightParams" />
           
           <Transition name="card-fold">
-            <div v-if="!isDrawingMode" class="flex flex-col gap-6 origin-top">
+            <div v-if="!isDrawingMode" class="flex-1 flex flex-col min-h-0 origin-top">
               <MissionCommandsCard :commandOptions="commandOptions" @add="handleAddCommand" />
             </div>
           </Transition>
@@ -284,11 +280,10 @@ onBeforeUnmount(() => {
             @edit="handleEditCommand"
             @sync-drawn-commands="handleSyncDrawnCommands"
             @send-rc="handleLiveRcCommand"
-            @save-to-plan="(rc) => handleAddCommand({ type: 'rc', val: `${rc.a} ${rc.b} ${rc.c} ${rc.d} 5` })"
           />
         </div>
 
-        <div class="w-full xl:w-96 flex flex-col gap-6 shrink-0 h-full overflow-y-auto custom-scrollbar pl-2">
+        <div class="w-full xl:w-96 flex flex-col gap-6 shrink-0 h-full">
           
           <ControlPanel
             v-show="currentMode === 'plan'"
@@ -307,12 +302,32 @@ onBeforeUnmount(() => {
             </h3>
             
             <div class="flex gap-3 w-full mb-3">
-              <button @click="handleTakeoff" :disabled="isFlying" class="flex-1 py-3 rounded-lg font-bold text-sm tracking-wide uppercase transition-colors flex justify-center items-center gap-2" :class="isFlying ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-[#658D1B] hover:bg-[#557516] text-white shadow-md'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>Takeoff</button>
-              <button @click="handleLand" :disabled="!isFlying" class="flex-1 py-3 rounded-lg font-bold text-sm tracking-wide uppercase transition-colors flex justify-center items-center gap-2" :class="!isFlying ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-slate-800 hover:bg-slate-900 text-white shadow-md'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>Land</button>
+              <button 
+                @click="handleTakeoff"
+                class="flex-1 py-3 bg-[#658D1B] hover:bg-[#557516] text-white rounded-lg font-bold text-sm tracking-wide uppercase transition-colors shadow-md flex justify-center items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                Takeoff
+              </button>
+              
+              <button 
+                @click="handleLand"
+                class="flex-1 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-bold text-sm tracking-wide uppercase transition-colors shadow-md flex justify-center items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                Land
+              </button>
             </div>
 
-            <button @click="handleEmergencyLand" :disabled="!isFlying" class="w-full py-3 rounded-lg font-bold text-sm tracking-wide uppercase transition-colors flex justify-center items-center gap-2" :class="!isFlying ? 'bg-red-100 text-red-300 cursor-not-allowed shadow-none' : 'bg-red-600 hover:bg-red-700 text-white shadow-md'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>Emergency Land</button>
+            <button 
+              @click="handleEmergencyLand" 
+              class="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm tracking-wide uppercase transition-colors shadow-md flex justify-center items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+              Emergency Land
+            </button>
           </div>
+
         </div>
 
       </div>
@@ -327,26 +342,29 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.card-fold-enter-active { transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.card-fold-leave-active { transition: all 0.4s cubic-bezier(0.36, 0, 0.66, -0.56); }
-.card-fold-enter-from, .card-fold-leave-to { opacity: 0; transform: scaleY(0.8) translateY(-40px); filter: blur(10px); margin-top: -24px; }
-
-.flex-1, .flex-\[2\.5\] { transition: flex 0.6s cubic-bezier(0.4, 0, 0.2, 1); will-change: flex; }
-
-/* CUSTOM SCROLLBAR LOGIC */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(101, 141, 27, 0.4);
+.card-fold-enter-active {
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.overflow-hidden { scrollbar-width: none; }
+.card-fold-leave-active {
+  transition: all 0.4s cubic-bezier(0.36, 0, 0.66, -0.56);
+}
+
+.card-fold-enter-from,
+.card-fold-leave-to {
+  opacity: 0;
+  transform: scaleY(0.8) translateY(-40px);
+  filter: blur(10px);
+  flex-grow: 0.0001;
+  margin-top: -24px;
+}
+
+.flex-1, .flex-\[2\.5\] {
+  transition: flex 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: flex;
+}
+
+.overflow-hidden {
+  scrollbar-width: none;
+}
 </style>
