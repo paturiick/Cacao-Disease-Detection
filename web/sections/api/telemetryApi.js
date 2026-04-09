@@ -16,13 +16,16 @@ async function jfetch(url, opts) {
 }
 
 export const telemetryApi = {
-  
-  // Standard polling/fallback method
-  getLatest: () => jfetch('/api/telemetry/latest/', { method: 'GET' }),
-
-  // NEW: SSE Stream connection
+  // SSE Stream connection - This is now the primary data source
   connectStream: () => {
-    // EventSource handles the persistent connection and auto-reconnects
     return new EventSource(`${BASE}/api/telemetry/stream/`);
-  }
+  },
+
+  // Bluetooth controls still require HTTP for state toggling
+  getBluetoothState: () => jfetch('/api/telemetry/ble-control/', { method: 'GET' }),
+  
+  setBluetoothState: (isActive) => jfetch('/api/telemetry/ble-control/', {
+    method: 'POST',
+    body: JSON.stringify({ active: isActive })
+  })
 };
