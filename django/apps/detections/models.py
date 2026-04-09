@@ -3,6 +3,7 @@ import uuid
 from django.db import models
 
 class CacaoDetectionLog(models.Model):
+    flight_plan_id = models.IntegerField(null=True, blank=True, db_index=True)
     session_id = models.CharField(max_length=100, default=uuid.uuid4, unique=True, db_index=True)
     start_time = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
@@ -16,13 +17,8 @@ class CacaoDetectionLog(models.Model):
 class DetectedCacao(models.Model):
 
     session = models.ForeignKey(CacaoDetectionLog, related_name='detected_pods', on_delete=models.CASCADE)
-    
-    # The unique ID assigned by the BoT-SORT tracker
     track_id = models.IntegerField() 
-    
-    # 'healthy' or 'unhealthy'
-    status = models.CharField(max_length=20) 
-    
+    status = models.CharField(max_length=20)  
     first_seen = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(auto_now=True)
 

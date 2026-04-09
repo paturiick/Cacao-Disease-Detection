@@ -1,5 +1,7 @@
+# apps/missions/views.py
 import json
 import uuid
+from django.utils import timezone
 
 from drone_controller.instance import get_video_receiver
 from django.http import JsonResponse
@@ -74,25 +76,17 @@ def clear_steps(request, plan_id):
     return JsonResponse({"ok": True})
 
 
-# --- HARDWARE EXECUTION & OVERRIDE VIEWS ---
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def run_mission_view(request):
-    """Triggered when you click 'Run Mission' on the frontend."""
-    body = json.loads(request.body)
-    # Pass the JSON steps to our mission service
-    steps = body.get("steps", [])
-    speed = body.get("flightParams", {}).get("speed", 30)
-    
-    return JsonResponse(services.start_hardware_mission(steps, speed))
-
 @csrf_exempt
 @require_http_methods(["POST"])
 def override_command_view(request):
     """Triggered by the Emergency or Stop buttons."""
     body = json.loads(request.body)
     cmd = body.get("command")
+
+    if cmd in ["stop", "land", "emergency"]:
+        receiver = get_video_receiver()
+        receiver.current_plan_id = None
+
     return JsonResponse(services.send_live_override(cmd))
 
 @require_http_methods(["GET"])
@@ -109,10 +103,32 @@ def run_mission_view(request):
     steps = body.get("steps", [])
     speed = body.get("flightParams", {}).get("speed", 30)
     
+    active_plan = FlightPlan.objects.filter(is_active=True).first()
+
+    historical_plan = FlightPlan.objects.create(
+        name=f"Flight Log: {timezone.now().strftime('%b %d, %H:%M')}",
+        altitude=active_plan.altitude if active_plan else 2,
+        speed=speed,
+        mode=active_plan.mode if active_plan else "Stabilize",
+        is_active=False 
+    )
+
+    
+    if active_plan:
+        for step in active_plan.steps.all():
+            FlightStep.objects.create(
+                plan=historical_plan,
+                order=step.order,
+                step_type=step.step_type,
+                step_val=step.step_val
+            )
+
     new_session_id = str(uuid.uuid4())
     
     receiver = get_video_receiver()
     receiver.current_session_id = new_session_id
+    receiver.current_plan_id = historical_plan.id
+    
     result = services.start_hardware_mission(steps, speed)    
     result["session_id"] = new_session_id 
     
