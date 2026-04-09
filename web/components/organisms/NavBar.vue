@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router'; // <-- Added this to auto-detect the URL
 import { useDrone } from '~/sections/api/statusApi.js'; 
 
 import NavBarBranding from '~/components/molecules/NavBarBranding.vue';
@@ -11,12 +12,12 @@ import IconWifi from '~/components/atoms/IconWifi.vue';
 import IconMap from '~/components/atoms/IconMap.vue';
 import IconReport from '~/components/atoms/IconReport.vue';
 
-// --- ADDED `battery` prop here ---
+// 1. Removed activePage from props (it's automatic now!)
 const props = defineProps({
-  activePage: { type: String, required: true },
   battery: { type: Number, default: null } 
 });
 
+const route = useRoute(); // <-- Initialize the route
 const { isConnected, isConnecting, connectDrone } = useDrone();
 
 const currentDroneStatus = computed(() => {
@@ -33,7 +34,12 @@ const pages = {
   'report': { label: 'Report', path: '/report', color: 'bg-[#F57F17]', iconKey: 'doc' }
 };
 
-const currentPage = computed(() => pages[props.activePage] || pages['mission-planner']);
+// 2. Automatically find the current page based on the browser's URL path
+const currentPage = computed(() => {
+  const foundPage = Object.values(pages).find(p => p.path === route.path);
+  return foundPage || pages['mission-planner']; // Default fallback
+});
+
 const navigationLinks = computed(() => Object.values(pages).filter(p => p.label !== currentPage.value.label));
 
 const goTo = (path) => navigateTo(path);
@@ -41,6 +47,40 @@ const logout = () => navigateTo('/login');
 
 const syncMessage = ref('');
 const isError = ref(false);
+
+// --- BLUETOOTH STATE ---
+const isBtConnecting = ref(false);
+const isBtConnected = ref(false);
+
+const handleBtSync = async () => {
+  if (isBtConnecting.value) return;
+  
+  syncMessage.value = '';
+  isError.value = false;
+  isBtConnecting.value = true;
+  let didTimeout = false;
+
+  const timeoutTimer = setTimeout(() => {
+    didTimeout = true;
+    isError.value = true;
+    syncMessage.value = 'Cannot sync Bluetooth (Timeout).';
+    isBtConnecting.value = false;
+    setTimeout(() => { syncMessage.value = ''; }, 5000);
+  }, 5000);
+
+  // TODO: Replace this timeout with your actual Bluetooth connection logic
+  await new Promise(resolve => setTimeout(resolve, 2000)); 
+  
+  clearTimeout(timeoutTimer);
+
+  if (!didTimeout) {
+    isBtConnected.value = true;
+    isBtConnecting.value = false;
+    isError.value = false;
+    syncMessage.value = 'Bluetooth Synced!';
+    setTimeout(() => { syncMessage.value = ''; }, 5000);
+  }
+};
 
 const handleSync = async () => {
   if (isConnecting.value) return;
@@ -107,7 +147,7 @@ const handleSync = async () => {
       >
         <svg 
           class="w-4 h-4" 
-          :class="{'animate-spin text-[#658D1B]': isConnecting}" 
+          :class="{'animate-spin text-[#658D1B]': isConnecting, 'text-[#658D1B]': isConnected && !isConnecting}" 
           fill="none" 
           stroke="currentColor" 
           viewBox="0 0 24 24"
@@ -115,6 +155,27 @@ const handleSync = async () => {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
         </svg>
         {{ isConnecting ? 'Syncing...' : 'Sync Drone' }}
+      </button>
+
+      <button 
+        @click="handleBtSync"
+        :disabled="isBtConnecting"
+        title="Sync Bluetooth"
+        class="flex items-center justify-center w-9 h-9 bg-slate-800 text-white rounded-full border border-slate-700 hover:bg-slate-700 transition-all shadow-sm disabled:opacity-50"
+      >
+        <svg 
+          class="w-4 h-4 transition-colors" 
+          :class="{
+            'animate-pulse text-[#38BDF8]': isBtConnecting, 
+            'text-[#38BDF8]': isBtConnected && !isBtConnecting,
+            'text-white': !isBtConnected && !isBtConnecting
+          }" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6.75 7.5l10.5 9-6 5.25V2.25l6 5.25-10.5 9"></path>
+        </svg>
       </button>
 
       <div class="h-8 w-px bg-gray-200"></div>

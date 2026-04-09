@@ -53,7 +53,7 @@ const isConnected = computed(() => {
               <path d="M17 6H3a2 2 0 00-2 2v8a2 2 0 002 2h14a2 2 0 002-2v-8a2 2 0 00-2-2zm4 4v4h-2v-4h2z"/>
             </svg>
             <span 
-              class="text-xs font-bold font-inter tracking-wide transition-colors duration-300" 
+              class="text-xs font-bold font-inter tracking-wide transition-colors duration-300"
               :class="battery <= 20 ? 'text-red-500' : 'text-green-600'"
             >
               {{ battery }}%
