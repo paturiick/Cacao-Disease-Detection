@@ -1,10 +1,10 @@
 # apps/live/views.py
 import json
 import asyncio
-import uuid
 from django.http import StreamingHttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from drone_controller.instance import get_video_receiver, get_drone_client
+from asgiref.sync import sync_to_async
 
 async def generate_frames():
     receiver = get_video_receiver() 
@@ -32,30 +32,68 @@ async def video_feed(request):
         content_type='multipart/x-mixed-replace; boundary=frame'
     )
 
+def _handle_hardware_toggle(command):
+    client = get_drone_client()
+    receiver = get_video_receiver()
+
+    if command == 'streamon':
+        reply = client.send('streamon') # This socket call blocks!
+        if reply.ok:
+            receiver.start()
+        return reply
+    elif command == 'streamoff':
+        reply = client.send('streamoff') # This socket call blocks!
+        receiver.stop()
+        return reply
+    return None
+# ---------------------------
+
+
 @csrf_exempt
-def toggle_camera(request):
+async def toggle_camera(request):
     """
-    Synchronous endpoint to turn the drone's hardware stream on/off.
+    Now properly async. The blocking hardware call is safely threaded.
+    """
+    if request.method == 'POST':
+        try:
+            body = request.body.decode('utf-8')
+            data = json.loads(body)
+            command = data.get('command')
+            
+            # Run the blocking function in a background thread
+            reply = await sync_to_async(_handle_hardware_toggle, thread_sensitive=False)(command)
+
+            if reply and reply.ok:
+                return JsonResponse({"status": "success"})
+            elif reply:
+                return JsonResponse({"status": "error", "message": reply.text}, status=400)
+            else:
+                return JsonResponse({"status": "error", "message": "Invalid command"}, status=400)
+                
+        # Catch the DroneTimeout error specifically so it doesn't crash the server
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
+            
+    return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
+@csrf_exempt
+def toggle_recording(request):
+    """
+    Endpoint to start/stop saving the stream to an MP4 file.
     """
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
             command = data.get('command')
-            
-            # Use getters to ensure singletons are ready
-            client = get_drone_client()
             receiver = get_video_receiver()
 
-            if command == 'streamon':
-                client.send('streamon')
-
-
-                receiver.start()
-                return JsonResponse({"status": "success"})
-            elif command == 'streamoff':
-                client.send('streamoff')
-                receiver.stop()
-                return JsonResponse({"status": "success"})
+            if command == 'start':
+                receiver.start_recording()
+                return JsonResponse({"status": "success", "message": "Recording started"})
+            
+            elif command == 'stop':
+                receiver.stop_recording()
+                return JsonResponse({"status": "success", "message": "Recording stopped"})
 
             return JsonResponse({"status": "error", "message": "Invalid command"}, status=400)
         except Exception as e:
