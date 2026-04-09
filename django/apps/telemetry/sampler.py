@@ -31,7 +31,7 @@ def start_sampler(sample_every_s: float = 1.0):
                 # Fetch the live state directly from Postgres
                 state, _ = LiveSystemState.objects.get_or_create(id=1)
                 
-                print(f"Connected: {is_connected} | GPS: {state.gps_lat}, {state.gps_lon} | BLE Active: {state.ble_active}")
+                #print(f"Connected: {is_connected} | GPS: {state.gps_lat}, {state.gps_lon} | BLE Active: {state.ble_active}")
                 
                 if is_connected:
                     t = telemetry.get()

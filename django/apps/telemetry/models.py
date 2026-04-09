@@ -7,6 +7,8 @@ class LiveSystemState(models.Model):
     gps_lon = models.FloatField(null=True, blank=True)
     ble_active = models.BooleanField(default=False) # For your Web UI toggle button
 
+    last_error = models.CharField(max_length=100, blank=True, null=True)
+
 class TelemetrySnapshot(models.Model):
     recorded_at = models.DateTimeField(auto_now_add=True)
     connected = models.BooleanField(default=False)

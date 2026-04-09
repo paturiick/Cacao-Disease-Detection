@@ -1,7 +1,9 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router'; // <-- Added this to auto-detect the URL
 import { useDrone } from '~/sections/api/statusApi.js'; 
+
+import { telemetryApi } from '~/sections/api/telemetryApi.js';
 
 import NavBarBranding from '~/components/molecules/NavBarBranding.vue';
 import ActivePageBanner from '~/components/molecules/ActivePageBanner.vue';
@@ -52,32 +54,42 @@ const isError = ref(false);
 const isBtConnecting = ref(false);
 const isBtConnected = ref(false);
 
+onMounted(async () => {
+  try {
+    const state = await telemetryApi.getBluetoothState();
+    isBtConnected.value = state.active;
+  } catch (error) {
+    console.error("Failed to fetch initial BLE state:", error);
+  }
+});
+
 const handleBtSync = async () => {
   if (isBtConnecting.value) return;
   
   syncMessage.value = '';
   isError.value = false;
   isBtConnecting.value = true;
-  let didTimeout = false;
-
-  const timeoutTimer = setTimeout(() => {
-    didTimeout = true;
-    isError.value = true;
-    syncMessage.value = 'Cannot sync Bluetooth (Timeout).';
-    isBtConnecting.value = false;
-    setTimeout(() => { syncMessage.value = ''; }, 5000);
-  }, 5000);
-
-  // TODO: Replace this timeout with your actual Bluetooth connection logic
-  await new Promise(resolve => setTimeout(resolve, 2000)); 
   
-  clearTimeout(timeoutTimer);
+  // Determine if we are turning it ON or OFF
+  const targetState = !isBtConnected.value;
 
-  if (!didTimeout) {
-    isBtConnected.value = true;
+  try {
+    // Send the real POST request to Django
+    const response = await telemetryApi.setBluetoothState(targetState);
+    
+    if (response && response.status === 'success') {
+      isBtConnected.value = response.active;
+      isError.value = false;
+      syncMessage.value = response.active ? 'Bluetooth Synced!' : 'Bluetooth Disconnected';
+    } else {
+      throw new Error("Unexpected API response");
+    }
+  } catch (error) {
+    console.error("BLE Sync Error:", error);
+    isError.value = true;
+    syncMessage.value = 'Cannot sync Bluetooth.';
+  } finally {
     isBtConnecting.value = false;
-    isError.value = false;
-    syncMessage.value = 'Bluetooth Synced!';
     setTimeout(() => { syncMessage.value = ''; }, 5000);
   }
 };

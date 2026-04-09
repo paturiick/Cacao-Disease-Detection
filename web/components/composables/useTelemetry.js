@@ -1,7 +1,6 @@
-import { reactive, onUnmounted } from 'vue';
+import { reactive } from 'vue';
 import { telemetryApi } from '~/sections/api/telemetryApi';
 
-// Global state shared by all components
 const state = reactive({
   recorded_at: null,
   connected: false,
@@ -21,20 +20,17 @@ const state = reactive({
   agz: 0,
   baro: 0,
   flight_time: 0,
-  
   gps_lat: 8.4803, 
   gps_lon: 124.6498,
-
   heading: 0, 
   speed: 0,   
 });
 
-let eventSource = null; // Replaces pollInterval
+let eventSource = null; 
 let activeSubscribers = 0; 
 
 export function useTelemetry() {
   
-  // Internal helper to update the reactive state object
   const updateState = (data) => {
     if (!data) return;
 
@@ -57,14 +53,13 @@ export function useTelemetry() {
     state.baro = data.baro ?? state.baro;
     state.flight_time = data.flight_time ?? state.flight_time;
 
-    if (data.gps_lat !== 0 && data.gps_lat !== undefined) {
+    if (data.gps_lat && data.gps_lat !== 0) {
       state.gps_lat = data.gps_lat;
     }
-    if (data.gps_lon !== 0 && data.gps_lon !== undefined) {
+    if (data.gps_lon && data.gps_lon !== 0) {
       state.gps_lon = data.gps_lon;
     }
 
-    // Derived calculations
     state.heading = state.yaw >= 0 ? state.yaw : 360 + state.yaw;
     state.speed = Math.round(Math.sqrt((state.vgx ** 2) + (state.vgy ** 2)));
   };
@@ -72,9 +67,8 @@ export function useTelemetry() {
   const startStreaming = () => {
     activeSubscribers++;
     
-    // Only open the tunnel if it's the first subscriber and no stream exists
     if (activeSubscribers === 1 && !eventSource) {
-      console.log("Opening Silent Telemetry SSE Stream...");
+      console.log("Opening Pure Telemetry SSE Stream (No Polling)...");
       
       eventSource = telemetryApi.connectStream();
 
@@ -109,7 +103,6 @@ export function useTelemetry() {
   return {
     telemetryState: state,
     startPolling: startStreaming, 
-    stopPolling: stopStreaming,
-    fetchLatest: updateState 
+    stopPolling: stopStreaming
   };
 }
