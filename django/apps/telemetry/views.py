@@ -77,16 +77,29 @@ def update_gps_endpoint(request):
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def ble_control(request):
-    """Handles the Web UI toggle switch."""
+    """Handles the Web UI toggle switch and error reporting."""
     state = get_system_state()
     
     if request.method == "POST":
         try:
             payload = json.loads(request.body)
+            
+            # If the script reports an error, we turn 'active' OFF
+            # and save the error message.
             state.ble_active = payload.get("active", False)
+            state.last_error = payload.get("error", None) 
             state.save()
-            return JsonResponse({"status": "success", "active": state.ble_active})
+            
+            return JsonResponse({
+                "status": "success", 
+                "active": state.ble_active,
+                "error": state.last_error
+            })
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
             
-    return JsonResponse({"active": state.ble_active})
+    # When the frontend calls GET, it sees both the state AND the error
+    return JsonResponse({
+        "active": state.ble_active,
+        "error": state.last_error
+    })
