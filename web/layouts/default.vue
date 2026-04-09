@@ -16,8 +16,14 @@ const bgStyle = {
       <div class="absolute inset-0 bg-black/50 backdrop-blur-[2px]"></div>
     </div>
 
-    <div class="relative z-10">
-      <slot />
+    <div class="relative z-10 flex flex-col min-h-screen w-full">
+      
+      <Navbar />
+
+      <main class="flex-1 w-full relative">
+        <slot />
+      </main>
+      
     </div>
 
   </div>

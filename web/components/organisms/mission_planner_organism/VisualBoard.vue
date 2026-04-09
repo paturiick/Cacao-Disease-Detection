@@ -9,14 +9,14 @@ const props = defineProps({
 });
 
 // --- SCALE SETTINGS ---
-const CM_TO_PX = 1; 
+const CM_TO_PX = 12; 
 
 // --- STATE: POSITION & ZOOM ---
 const currentDronePos = ref({ x: 0, y: 0 });
 const currentDroneYaw = ref(0);
 const zoomMultiplier = ref(1);
 const MIN_ZOOM = 1.0; 
-const MAX_ZOOM = 3.0; 
+const MAX_ZOOM = 2.0; 
 
 // --- STATE: PANNING & INTERACTION ---
 const panOffset = ref({ x: 0, y: 0 });
@@ -142,13 +142,14 @@ const visualData = computed(() => {
       if (normAngle > 180) normAngle -= 360;
       if (normAngle <= -180) normAngle += 360;
       
-      // Push labels slightly further out so they don't overlap thicker lines
-      if (normAngle > 90 || normAngle < -90) { textRotation += 180; textDy = 22; } 
-      else { textDy = -22; }
+      // INCREASED OFFSET so bigger labels don't overlap the thicker lines
+      if (normAngle > 90 || normAngle < -90) { textRotation += 180; textDy = 32; } 
+      else { textDy = -32; }
     } else {
       const key = `${Math.round(x)},${Math.round(y)}`;
       if (!nodeStackMap[key]) nodeStackMap[key] = 0;
-      textDy = 34 + (nodeStackMap[key] * 34); 
+      // INCREASED OFFSET for stacked hover/rotate commands
+      textDy = 45 + (nodeStackMap[key] * 45); 
       nodeStackMap[key]++;
     }
 
@@ -196,8 +197,8 @@ const svgViewBox = computed(() => {
   return `${cx - finalW/2} ${cy - finalH/2} ${finalW} ${finalH}`;
 });
 
-// Slightly increased label scale to match thicker lines
-const labelScale = computed(() => Math.max(0.8, zoomMultiplier.value * 1.1));
+// Adjusted base scale so big labels don't get too massive when zooming out
+const labelScale = computed(() => Math.max(1.0, zoomMultiplier.value * 1.2));
 
 const getOpacity = (segId) => {
   if (hoveredSegId.value === null) return 1;
@@ -219,21 +220,11 @@ const getOpacity = (segId) => {
   >
     <div 
       v-if="hoveredSegmentData"
-      class="fixed z-50 pointer-events-none transition-opacity duration-150 bg-white text-slate-800 px-4 py-3 rounded-xl shadow-xl border border-slate-200 w-52 backdrop-blur-md bg-white/90"
+      class="fixed z-50 pointer-events-none transition-opacity duration-150 bg-white text-slate-800 px-4 py-3 rounded-xl shadow-xl border border-slate-200 w-auto min-w-[150px] backdrop-blur-md bg-white/90"
       :style="{ left: mousePos.x + 15 + 'px', top: mousePos.y + 15 + 'px' }"
     >
       <div class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Step {{ hoveredSegmentData.stepNum }} of {{ queue.length }}</div>
-      <div class="text-sm font-black text-[#658D1B] leading-tight mb-3">{{ hoveredSegmentData.label }}</div>
-      <div class="flex flex-col gap-1.5 text-[10px] font-bold text-slate-500">
-        <div class="flex justify-between items-center bg-slate-50 px-2 py-1.5 rounded">
-          <span>START</span>
-          <span class="font-mono text-slate-700">{{ Math.round(hoveredSegmentData.startX / CM_TO_PX) }}, {{ -Math.round(hoveredSegmentData.startY / CM_TO_PX) }}</span>
-        </div>
-        <div class="flex justify-between items-center bg-slate-50 px-2 py-1.5 rounded">
-          <span>END</span>
-          <span class="font-mono text-slate-700">{{ Math.round(hoveredSegmentData.endX / CM_TO_PX) }}, {{ -Math.round(hoveredSegmentData.endY / CM_TO_PX) }}</span>
-        </div>
-      </div>
+      <div class="text-base font-black text-[#658D1B] leading-tight">{{ hoveredSegmentData.label }}</div>
     </div>
 
     <div v-if="props.mode !== 'rc'" class="absolute top-4 left-4 z-10 bg-white/80 backdrop-blur-md px-3 py-2 rounded-lg border border-slate-200 shadow-sm flex items-center gap-2 pointer-events-none">
@@ -252,7 +243,7 @@ const getOpacity = (segId) => {
       <span class="text-[10px] font-black text-slate-500 mt-1 uppercase tracking-widest">N</span>
     </div>
 
-    <div class="absolute bottom-6 right-4 z-10 flex flex-col bg-white/90 backdrop-blur-md rounded-xl border border-slate-200 shadow-lg overflow-hidden">
+    <div v-if="props.mode !== 'report'" class="absolute bottom-6 right-4 z-10 flex flex-col bg-white/90 backdrop-blur-md rounded-xl border border-slate-200 shadow-lg overflow-hidden">
       <button @click="handleRecenter" title="Recenter on Drone" class="p-2.5 text-slate-500 hover:bg-slate-50 hover:text-[#658D1B] border-b border-slate-100 transition-colors">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
       </button>
@@ -308,32 +299,32 @@ const getOpacity = (segId) => {
           :x1="seg.startX" :y1="seg.startY" 
           :x2="seg.endX" :y2="seg.endY" 
           :stroke="seg.isActive ? '#658D1B' : '#94A3B8'" 
-          :stroke-width="hoveredSegId === seg.id || seg.isActive ? 8 : 5" 
+          :stroke-width="hoveredSegId === seg.id || seg.isActive ? 20 : 12"
           stroke-linecap="round"
-          :stroke-dasharray="seg.isActive ? 'none' : '12, 12'"
+          :stroke-dasharray="seg.isActive ? 'none' : '10, 30'"
           :filter="seg.isActive ? 'url(#glow)' : ''"
         />
         
         <circle 
           v-if="seg.isMovement"
           :cx="seg.endX" :cy="seg.endY" 
-          :r="hoveredSegId === seg.id || seg.isActive ? 10 : 7" 
+          :r="hoveredSegId === seg.id || seg.isActive ? 12 : 9" 
           fill="#FFFFFF" 
           :stroke="seg.isActive ? '#658D1B' : '#94A3B8'" 
-          stroke-width="3"
+          stroke-width="4"
           filter="url(#soft-shadow)"
         />
         <circle 
           v-if="seg.isMovement && seg.isActive"
           :cx="seg.endX" :cy="seg.endY" 
-          r="4" 
+          r="5" 
           fill="#658D1B" 
         />
 
         <circle 
           v-if="!seg.isMovement"
           :cx="seg.endX" :cy="seg.endY" 
-          :r="seg.isActive || hoveredSegId === seg.id ? 14 : 10" 
+          :r="seg.isActive || hoveredSegId === seg.id ? 16 : 12" 
           :fill="seg.isActive ? '#F59E0B' : '#FFFFFF'" 
           :stroke="seg.isActive ? '#FFFFFF' : '#F59E0B'"
           stroke-width="3"
@@ -342,8 +333,11 @@ const getOpacity = (segId) => {
 
         <g :transform="`translate(${seg.midX}, ${seg.midY}) scale(${labelScale}) rotate(${seg.textRotation || 0})`">
           <rect 
-            :x="-(seg.label.length * 4.5) - 12" :y="seg.textDy - 13" 
-            :width="(seg.label.length * 9) + 24" height="26" rx="13" 
+            :x="-(seg.label.length * 10) - 40" 
+            :y="seg.textDy - 30" 
+            :width="(seg.label.length * 20) + 80" 
+            height="50" 
+            rx="30" 
             :fill="seg.isActive ? '#658D1B' : '#FFFFFF'" 
             :fill-opacity="seg.isActive ? 1 : 0.95"
             :stroke="seg.isActive ? 'none' : '#E2E8F0'" 
@@ -351,8 +345,8 @@ const getOpacity = (segId) => {
             filter="url(#soft-shadow)"
           />
           <text 
-            x="0" :y="seg.textDy + 4.5" 
-            font-size="11" font-weight="800" 
+            x="0" :y="seg.textDy + 10"
+            font-size="30" font-weight="900"
             :fill="seg.isActive ? '#FFFFFF' : '#475569'" 
             text-anchor="middle" font-family="Inter, sans-serif" letter-spacing="0.5"
           >
