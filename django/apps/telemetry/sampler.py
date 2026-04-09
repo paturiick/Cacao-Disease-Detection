@@ -4,9 +4,8 @@ from datetime import timedelta
 from django.utils import timezone
 from django.db import close_old_connections
 
-# FIX: Import the active hardware singletons!
 from drone_controller.instance import get_drone_client, get_telemetry_receiver
-from .models import TelemetrySnapshot
+from .models import TelemetrySnapshot, LiveSystemState
 
 _started = False
 _lock = threading.Lock()
@@ -19,22 +18,24 @@ def start_sampler(sample_every_s: float = 1.0):
         _started = True
 
     def loop():
+        print("SAMPLER THREAD STARTED!")
         while True:
             try:
                 close_old_connections()
                 
-                # FIX: Fetch from the active singletons
                 client = get_drone_client()
                 telemetry = get_telemetry_receiver()
                 
-                # Check connection status directly from the client
                 is_connected = client.status().get("connected", False)
                 
+                # Fetch the live state directly from Postgres
+                state, _ = LiveSystemState.objects.get_or_create(id=1)
+                
+                print(f"Connected: {is_connected} | GPS: {state.gps_lat}, {state.gps_lon} | BLE Active: {state.ble_active}")
+                
                 if is_connected:
-                    # Get the live dictionary from telemetry.py
                     t = telemetry.get()
                     
-                    # Persist Snapshot
                     TelemetrySnapshot.objects.create(
                         connected=True,
                         battery=_safe_int(t.get("battery")),
@@ -53,8 +54,11 @@ def start_sampler(sample_every_s: float = 1.0):
                         agy=_safe_float(t.get("agy")),
                         agz=_safe_float(t.get("agz")),
                         flight_time=_safe_int(t.get("flight_time")),
-                        gps_lat=_safe_float(t.get("gps_lat")),
-                        gps_lon=_safe_float(t.get("gps_lon")),
+                        
+                        # INJECT GPS FROM POSTGRES HERE:
+                        gps_lat=state.gps_lat,
+                        gps_lon=state.gps_lon,
+                        
                         raw=str(t.get("raw", "")),
                     )
                     
@@ -62,7 +66,7 @@ def start_sampler(sample_every_s: float = 1.0):
                     TelemetrySnapshot.objects.filter(recorded_at__lt=cutoff).delete()
 
             except Exception as e:
-                pass
+                print(f"SAMPLER CRASHED: {e}") 
             
             time.sleep(max(0.2, float(sample_every_s)))
 
