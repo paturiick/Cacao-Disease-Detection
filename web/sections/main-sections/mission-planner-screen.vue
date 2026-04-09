@@ -2,6 +2,7 @@
 import { reactive, ref, onMounted, watch, onBeforeUnmount, computed } from 'vue';
 import { missionApi } from "~/sections/api/missionApi"; 
 import { useTelemetry } from "~/components/composables/useTelemetry"; 
+import { activeSessionId, isStreamActive } from '~/components/composables/droneStore';
 
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 
@@ -181,23 +182,30 @@ const startStatusPoll = () => {
 };
 
 const handleRunMission = async () => {
-  // Removed the strict frontend telemetry check.
-  // The backend API will now dictate if it's safe/possible to run the mission.
-
   isRunning.value = true;
   currentStepIndex.value = -1;
+  
   try {
     const res = await missionApi.run();
-    if (!res.ok) {
+    
+    // CHECK THE RESPONSE: Django returns { ok: true, session_id: "..." }
+    if (res.ok && res.session_id) {
+      console.log("[MISSION] Started! Session ID captured:", res.session_id);
+      
+      // SAVE TO GLOBAL STORE: This wakes up the counters on the other screen!
+      activeSessionId.value = res.session_id;
+      isStreamActive.value = true; // Ensures the SSE tunnel starts
+      
+      startStatusPoll();
+    } else {
       modalConfig.title = "Mission Failed to Start";
-      modalConfig.message = res.message || "An error occurred.";
+      modalConfig.message = res.text || "An error occurred."; // Backend sends errors in 'text'
       modalConfig.isWarning = true;
       showCompleteModal.value = true;
       isRunning.value = false;
-      return;
     }
-    startStatusPoll();
   } catch (e) {
+    console.error("[MISSION] API Error:", e);
     isRunning.value = false;
   }
 };
