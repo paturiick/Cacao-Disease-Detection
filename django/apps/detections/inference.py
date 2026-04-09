@@ -10,13 +10,19 @@ from drone_controller.instance import get_video_receiver
 from .models import CacaoDetectionLog, DetectedCacao
 
 # Load your custom YOLOv11 model
+# Defaulting to the path typically used in your Docker/Linux environment
 MODEL_PATH = "/app/models/ver6.pt" 
 if not os.path.exists(MODEL_PATH):
+    # Fallback to local directory for development
     MODEL_PATH = os.path.join(os.getcwd(), "models", "ver6.pt")
 
 model = YOLO(MODEL_PATH)
 
 def start_inference_loop():
+    """
+    Launches the background AI thread. 
+    This is called once by apps.py when Django starts.
+    """
     receiver = get_video_receiver()
 
     def loop():
@@ -25,26 +31,27 @@ def start_inference_loop():
         SAVE_INTERVAL_SECONDS = 3.0 
         
         active_session = None
-        
+        # Use a dictionary to map track_id -> status to prevent double-counting
         seen_pods = {} 
-        
-        # Dictionary for UI smoothing (prevents flickering)
-        tracker_memory = {} 
-        MEMORY_TIMEOUT = 0.15 # Seconds to keep a box alive on screen if detection drops
 
         while True:
+            # 1. Fetch the raw frame from the Drone Controller's VideoReceiver
             frame_bytes = receiver.get_latest_frame()
             if not frame_bytes:
                 time.sleep(0.1)
                 continue
 
+            # 2. Track Session and Mission state
             current_session = receiver.current_session_id
+            current_plan = getattr(receiver, 'current_plan_id', None) # Linked to FlightPlan ID
+
+            # If the session changes (new flight), clear local memory
             if current_session != active_session:
                 print(f"[AI] New session detected: {current_session}. Wiping memory.")
                 active_session = current_session
                 seen_pods.clear()
-                tracker_memory.clear()
 
+            # 3. Decode frame for OpenCV/YOLO
             nparr = np.frombuffer(frame_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
@@ -52,18 +59,20 @@ def start_inference_loop():
                 continue
 
             try:
+                # 4. Run YOLOv11 Tracking
+                # persist=True is required to maintain IDs across individual frames
                 results = model.track(
                     source=img, 
                     persist=True, 
-                    tracker="/app/models/botsort.yaml", 
-                    conf=0.4, 
+                    tracker="/app/models/botsort.yaml", # Ensure this file exists in your working directory
+                    conf=0.7, 
                     iou=0.5,
                     verbose=False 
                 )
                 
-                current_time = time.time()
+                new_detections = []
 
-                # Process current frame detections
+                # 5. Process tracking results
                 for result in results:
                     if result.boxes.id is not None:
                         boxes = result.boxes.xyxy.cpu().numpy()
@@ -74,55 +83,44 @@ def start_inference_loop():
                         for box, track_id, cls, conf in zip(boxes, track_ids, clss, confs):
                             label_name = model.names[cls].lower()
 
-                            current_status = seen_pods.get(track_id, None)
-
-                            # 1. Update the Database Dictionary
+                            # Update dictionary: ensures a pod is only 'healthy' OR 'unhealthy'
                             if "unhealthy" in label_name:
                                 seen_pods[track_id] = "unhealthy"
-                            elif "healthy" in label_name and current_status != "unhealthy":
+                            elif "healthy" in label_name:
                                 seen_pods[track_id] = "healthy"
 
-                            # 2. Update the UI Memory Dictionary
-                            tracker_memory[track_id] = {
-                                "box": list(map(int, box)), # Use list to ensure it's serializable
-                                "label": f"ID:{track_id} {label_name} ({int(conf*100)}%)",
-                                "last_seen": current_time
-                            }
+                            # Prepare data for the frontend video overlay
+                            new_detections.append({
+                                "box": [int(x) for x in box],
+                                "label": f"ID:{track_id} {label_name} ({int(conf*100)}%)"
+                            })
 
-                # Build the list of boxes to send to the frontend
-                new_detections = []
-                active_ids = list(tracker_memory.keys())
-                
-                for tid in active_ids:
-                    # If we haven't seen this ID for 0.5 seconds, remove it from UI memory
-                    if current_time - tracker_memory[tid]["last_seen"] > MEMORY_TIMEOUT:
-                        del tracker_memory[tid]
-                    else:
-                        # Otherwise, add it to the current frame's drawing list
-                        new_detections.append({
-                            "box": tracker_memory[tid]["box"],
-                            "label": tracker_memory[tid]["label"]
-                        })
-
-                # Send smoothed boxes back to the video stream for the frontend
+                # 6. Push boxes back to VideoReceiver for the Vue frontend to draw
                 receiver.update_detections(new_detections)
 
-                # --- Database Saving Logic ---
-                if active_session and (current_time - last_db_save_time) > SAVE_INTERVAL_SECONDS:
+                # 7. Database Saving Logic (The Gatekeeper)
+                current_time = time.time()
+                
+                # We ONLY save if a FlightPlan (Mission) is active and the timer has elapsed
+                if current_plan and active_session and (current_time - last_db_save_time) > SAVE_INTERVAL_SECONDS:
                     if len(seen_pods) > 0:
+                        # Prevent "Database gone away" errors in daemon threads
                         close_old_connections()
                         
                         healthy_count = sum(1 for status in seen_pods.values() if status == "healthy")
                         unhealthy_count = sum(1 for status in seen_pods.values() if status == "unhealthy")
 
+                        # Save/Update the summary log
                         session_log, _ = CacaoDetectionLog.objects.update_or_create(
                             session_id=active_session,
                             defaults={
+                                'flight_plan_id': current_plan,
                                 'healthy_count': healthy_count,
                                 'unhealthy_count': unhealthy_count
                             }
                         )
 
+                        # Save/Update individual pod records
                         for pod_id, status in seen_pods.items():
                             DetectedCacao.objects.update_or_create(
                                 session=session_log,
@@ -135,6 +133,9 @@ def start_inference_loop():
             except Exception as e:
                 print(f"[AI] Inference Error: {e}")
             
-            time.sleep(0.05) 
+            # Control the loop frequency to save CPU
+            time.sleep(0.01) 
 
-    threading.Thread(target=loop, daemon=True).start()
+    # Start the loop in a background thread so Django remains responsive
+    thread = threading.Thread(target=loop, daemon=True)
+    thread.start()

@@ -4,4 +4,5 @@ from . import views
 
 urlpatterns = [
     path('stats/', views.get_detection_stats, name='detection-stats'),
+    path('stream-stats/', views.stream_detection_stats, name='detection-stream'),
 ]
