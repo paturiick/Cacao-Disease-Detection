@@ -7,27 +7,38 @@ import { useTelemetry } from '~/components/composables/useTelemetry';
 const { telemetryState } = useTelemetry();
 const isLoading = ref(false);
 
-// Local timestamp used to force the browser to refresh the image buffer
+const isRecording = ref(false);
+const isRecordingLoading = ref(false);
+
 const streamTimestamp = ref(Date.now());
 
 const videoSrc = computed(() => {
-  // We only show the source if the global store says active AND telemetry is connected
   if (!isStreamActive.value || !telemetryState.connected) return '';
   return `${liveApi.getStreamUrl()}?t=${streamTimestamp.value}`;
 });
 
+const toggleRecording = async () => {
+  if (isRecordingLoading.value) return;
+  
+  isRecordingLoading.value = true;
+  try {
+    const action = isRecording.value ? 'stop' : 'start';
+    await liveApi.toggleRecording(action);
+    isRecording.value = !isRecording.value; 
+  } catch (error) {
+    console.error(`Failed to ${isRecording.value ? 'stop' : 'start'} recording:`, error);
+  } finally {
+    isRecordingLoading.value = false;
+  }
+};
+
 const startStream = async () => {
-  // Safety check: Don't start if already streaming or currently busy initializing
   if (isStreamActive.value || isLoading.value) return;
   
   isLoading.value = true;
   try {
     const response = await liveApi.toggleHardware('streamon');
-    
-    // Update timestamp to ensure the <img> tag re-fetches the stream
     streamTimestamp.value = Date.now();
-    
-    // Set global store to active so other pages know the stream is running
     isStreamActive.value = true; 
     
     if (response.session_id) {
@@ -37,7 +48,6 @@ const startStream = async () => {
     console.error(`Hardware Camera Toggle (streamon) Failed:`, e);
     isStreamActive.value = false;
   } finally {
-    // Artificial delay to allow the drone hardware to stabilize its local MJPEG server
     setTimeout(() => {
       isLoading.value = false;
     }, 1500); 
@@ -45,11 +55,16 @@ const startStream = async () => {
 };
 
 const stopStream = async () => {
-  // If already stopped, do nothing
   if (!isStreamActive.value) return;
   
   isStreamActive.value = false; 
   activeSessionId.value = null;
+  
+  // Cleanly stop recording if the stream dies
+  if (isRecording.value) {
+    isRecording.value = false; 
+    try { await liveApi.toggleRecording('stop'); } catch(e) {}
+  }
   
   try {
     await liveApi.toggleHardware('streamoff');
@@ -58,10 +73,6 @@ const stopStream = async () => {
   }
 };
 
-/**
- * WATCHER: This is the engine for automatic streaming.
- * It monitors the drone's connection status.
- */
 watch(() => telemetryState.connected, (isConnected) => {
   if (isConnected) {
     console.log("Drone connected: Automatically starting stream...");
@@ -71,9 +82,6 @@ watch(() => telemetryState.connected, (isConnected) => {
     stopStream();
   }
 }, { immediate: true }); 
-
-// NOTE: onBeforeUnmount is REMOVED so that navigating away from the page
-// does not send a 'streamoff' command to the drone.
 </script>
 
 <template>
@@ -88,6 +96,21 @@ watch(() => telemetryState.connected, (isConnected) => {
       
       <div class="flex items-center gap-3">
         <slot name="header-actions"></slot>
+
+        <button
+          v-if="isStreamActive && telemetryState.connected"
+          @click="toggleRecording"
+          :disabled="isRecordingLoading"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-300 shadow-lg backdrop-blur-md uppercase tracking-wider focus:outline-none disabled:opacity-50"
+          :class="isRecording ? 'bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30' : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700/80'"
+        >
+          <span v-if="isRecordingLoading" class="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+          <template v-else>
+            <span v-if="!isRecording" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+            <span v-else class="w-2.5 h-2.5 rounded-sm bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+          </template>
+          {{ isRecording ? 'REC' : 'Record' }}
+        </button>
 
         <div 
           :class="isStreamActive ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/50' : 'bg-slate-800/80 text-slate-400 border-slate-700'"
