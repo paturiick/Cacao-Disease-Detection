@@ -18,7 +18,10 @@ class VideoReceiver:
         
         self.thread = None
         self._current_stop_event = None 
+
+        #ids
         self.current_session_id = None
+        self.current_plan_id = None
 
         self.is_recording = False
         self.video_writer = None
