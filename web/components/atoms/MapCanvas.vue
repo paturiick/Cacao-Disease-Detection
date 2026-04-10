@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, watch, onUnmounted } from 'vue';
+import { ref, onMounted, watch, onUnmounted, createVNode, render } from 'vue';
 import 'leaflet/dist/leaflet.css';
+import DroneModel from '~/components/atoms/DroneModel.vue';
 
 const props = defineProps({
   lat: { type: Number, default: 0 },
@@ -17,7 +18,12 @@ let droneMarker = null;
 let treeLayerGroup = null; // Layer group for dynamic cacao pod markers
 let L = null;
 
-const recenter = () => {
+// --- STATE: MAP TRACKING ---
+// Tracks whether the camera should auto-follow the drone
+const isTracking = ref(true);
+
+const recenterMap = () => {
+  isTracking.value = true;
   if (map && props.lat !== 0 && props.lng !== 0) {
     map.flyTo([props.lat, props.lng], props.zoom, {
       duration: 1.5,
@@ -26,36 +32,36 @@ const recenter = () => {
   }
 };
 
+// Exposing for parent components that might use either naming convention
 defineExpose({
-  recenter
+  recenter: recenterMap,
+  recenterMap
 });
 
 // --- Custom Drone Icon Generator ---
 const getDroneIcon = (heading) => {
+  const tempContainer = document.createElement('div');
+
+  // REDUCED SIZE: Changed from 56px to 36px to look like a proper map marker
+  const vnode = createVNode('div', { class: 'relative flex items-center justify-center w-[36px] h-[36px]' }, [
+    createVNode('div', { class: 'absolute w-full h-full bg-[#658D1B]/30 rounded-full animate-ping' }),
+    
+    createVNode('svg', {
+      viewBox: '-24 -24 48 48',
+      class: 'relative z-10 w-9 h-9', // w-9 is 36px
+      style: `transform: rotate(${heading}deg); transition: transform 0.3s ease-out; filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.5));`
+    }, [
+      createVNode(DroneModel, { isRunning: true })
+    ])
+  ]);
+
+  render(vnode, tempContainer);
+
   return L.divIcon({
     className: 'bg-transparent',
-    iconSize: [56, 56],
-    iconAnchor: [28, 28],
-    html: `
-      <div class="relative flex items-center justify-center w-[56px] h-[56px]">
-        <div class="absolute w-full h-full bg-red-500/40 rounded-full animate-ping"></div>
-        
-        <div style="transform: rotate(${heading}deg); transition: transform 0.3s ease-out;" class="relative z-10 flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.6)); color: #ef4444;">
-            <rect x="9" y="9" width="6" height="6" rx="1" fill="#1f2937" stroke="#1f2937" />
-            <polygon points="12,3 9,7 15,7" fill="#3b82f6" stroke="none" />
-            <path d="M9 9L4 4" />
-            <path d="M15 9L20 4" />
-            <path d="M9 15L4 20" />
-            <path d="M15 15L20 20" />
-            <circle cx="4" cy="4" r="2.5" stroke="#9ca3af" fill="white" fill-opacity="0.2"/>
-            <circle cx="20" cy="4" r="2.5" stroke="#9ca3af" fill="white" fill-opacity="0.2"/>
-            <circle cx="4" cy="20" r="2.5" stroke="#9ca3af" fill="white" fill-opacity="0.2"/>
-            <circle cx="20" cy="20" r="2.5" stroke="#9ca3af" fill="white" fill-opacity="0.2"/>
-          </svg>
-        </div>
-      </div>
-    `
+    iconSize: [36, 36],     // Scaled down
+    iconAnchor: [18, 18],   // Centered for the new 36px size
+    html: tempContainer.innerHTML
   });
 };
 
@@ -123,11 +129,16 @@ onMounted(async () => {
     attribution: '© Google'
   }).addTo(map);
 
-  // Initialize and attach the LayerGroup to the map
+  // Initialize and attach the LayerGroup to the map for dynamic pod rendering
   treeLayerGroup = L.layerGroup().addTo(map);
 
   // Initial render of existing trees
   renderTrees(props.trees);
+
+  // If the user drags the map manually, turn off auto-tracking so they aren't forced back
+  map.on('dragstart', () => {
+    isTracking.value = false;
+  });
 
   if (props.lat !== 0 && props.lng !== 0) {
     droneMarker = L.marker([props.lat, props.lng], { 
@@ -155,8 +166,10 @@ watch(() => [props.lat, props.lng, props.heading], ([newLat, newLng, newHeading]
       }).addTo(map);
     }
     
-    // Automatically pan camera to follow drone flight
-    map.panTo([newLat, newLng]);
+    // Only pan the map if the user hasn't dragged away (isTracking is true)
+    if (isTracking.value) {
+      map.panTo([newLat, newLng]);
+    }
   }
 });
 
@@ -165,10 +178,28 @@ watch(() => props.zoom, (newZoom) => {
 });
 
 onUnmounted(() => {
-  if (map) map.remove();
+  if (map) {
+    map.off('dragstart');
+    map.remove();
+  }
 });
 </script>
 
 <template>
-  <div ref="mapContainer" class="w-full h-full z-0"></div>
+  <div class="relative w-full h-full">
+    <div ref="mapContainer" class="w-full h-full z-0"></div>
+
+    <button 
+      @click="recenterMap"
+      class="absolute bottom-4 right-4 z-[400] p-2.5 rounded-xl shadow-lg border transition-all flex items-center justify-center"
+      :class="isTracking 
+        ? 'bg-[#658D1B] border-[#658D1B] text-white' 
+        : 'bg-white border-slate-200 text-slate-500 hover:text-[#658D1B]'"
+      title="Recenter on Drone"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h4m10 0h4M12 3v4m0 10v4m0-11a3 3 0 100 6 3 3 0 000-6z" />
+      </svg>
+    </button>
+  </div>
 </template>
