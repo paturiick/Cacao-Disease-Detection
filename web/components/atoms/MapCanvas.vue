@@ -15,6 +15,19 @@ let map = null;
 let droneMarker = null;
 let L = null;
 
+const recenter = () => {
+  if (map && props.lat !== 0 && props.lng !== 0) {
+    map.flyTo([props.lat, props.lng], props.zoom, {
+      duration: 1.5, // seconds
+      easeLinearity: 0.25
+    });
+  }
+};
+
+defineExpose({
+  recenter
+});
+
 // --- Custom Drone Icon Generator ---
 const getDroneIcon = (heading) => {
   return L.divIcon({

@@ -11,12 +11,7 @@ const props = defineProps({
     // These data are just STATIC IMAGES for testing purposes.
     type: Array,
     default: () => [
-      { id: 1, status: 'diseased', imageUrl: 'https://images.unsplash.com/photo-1597848212624-a19eb35e2656?w=600&q=60&auto=format' },
-      { id: 2, status: 'healthy',  imageUrl: 'https://images.unsplash.com/photo-1528183429752-a97d0bf99b5a?w=600&q=60&auto=format' },
-      { id: 3, status: 'diseased', imageUrl: 'https://images.unsplash.com/photo-1505672678657-cc7037095e60?w=600&q=60&auto=format' },
-      { id: 4, status: 'healthy',  imageUrl: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=600&q=60&auto=format' },
-      { id: 5, status: 'healthy',  imageUrl: 'https://images.unsplash.com/photo-1466692476877-626759c5d013?w=600&q=60&auto=format' },
-      { id: 6, status: 'diseased', imageUrl: 'https://images.unsplash.com/photo-1504567961542-e24d9439a724?w=600&q=60&auto=format' }
+      //insert database here to sync with the datacard
     ]
   }
 });
