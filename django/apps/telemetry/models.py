@@ -1,5 +1,31 @@
 from django.db import models
 
+class MissionTelemetryLog(models.Model):
+    session_id = models.CharField(max_length=255, db_index=True)
+    
+    # Core Hardware Data
+    battery = models.IntegerField(null=True, blank=True)
+    altitude_m = models.FloatField(null=True, blank=True)
+    flight_time = models.IntegerField(null=True, blank=True)
+    
+    # Orientation & Environment (Crucial for proving stability in your thesis)
+    pitch = models.IntegerField(null=True, blank=True)
+    roll = models.IntegerField(null=True, blank=True)
+    yaw = models.IntegerField(null=True, blank=True)
+    temp_c = models.IntegerField(null=True, blank=True)
+    
+    # GPS injected from your LiveSystemState
+    gps_lat = models.FloatField(null=True, blank=True)
+    gps_lon = models.FloatField(null=True, blank=True)
+    
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['recorded_at']
+
+    def __str__(self):
+        return f"[{self.session_id}] Bat:{self.battery}% Alt:{self.altitude_m}m"
+
 class LiveSystemState(models.Model):
     """A single-row table to hold live cross-process state."""
     id = models.IntegerField(primary_key=True, default=1) # Forces exactly one row

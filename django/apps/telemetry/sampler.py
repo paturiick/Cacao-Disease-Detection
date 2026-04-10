@@ -6,7 +6,7 @@ from django.db import close_old_connections
 from django.db.models import Q
 
 from drone_controller.instance import get_drone_client, get_telemetry_receiver
-from .models import TelemetrySnapshot, LiveSystemState
+from .models import TelemetrySnapshot, LiveSystemState, MissionTelemetryLog
 
 _started = False
 _lock = threading.Lock()
@@ -62,6 +62,20 @@ def start_sampler(sample_every_s: float = 1.0):
                         
                         raw=str(t.get("raw", "")),
                     )
+
+                    if telemetry.current_session_id:
+                        MissionTelemetryLog.objects.create(
+                            session_id=telemetry.current_session_id,
+                            battery=_safe_int(t.get("battery")),
+                            altitude_m=_safe_float(t.get("alt_m")),
+                            flight_time=_safe_int(t.get("flight_time")),
+                            pitch=_safe_int(t.get("pitch")),
+                            roll=_safe_int(t.get("roll")),
+                            yaw=_safe_int(t.get("yaw")),
+                            temp_c=_safe_int(t.get("temp_c")),
+                            gps_lat=state.gps_lat,
+                            gps_lon=state.gps_lon
+                        )
                     
                     cutoff = timezone.now() - timedelta(hours=1)
                     TelemetrySnapshot.objects.filter(

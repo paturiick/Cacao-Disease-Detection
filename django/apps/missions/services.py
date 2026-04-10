@@ -45,6 +45,7 @@ def start_hardware_mission(steps_data: list, speed: int = 30) -> dict:
         elif cmd_type == "down": builder.down_cm(val)
         elif cmd_type == "cw": builder.cw_deg(val)
         elif cmd_type == "ccw": builder.ccw_deg(val)
+        elif cmd_type == "dumb": builder.dumb_wait(val)
         elif cmd_type == "hover": builder.hover()
         elif cmd_type == "go":
             parts = val_str.split()

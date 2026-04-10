@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import LiveSystemState, TelemetrySnapshot
+from .models import LiveSystemState, TelemetrySnapshot, MissionTelemetryLog
 
 @admin.register(LiveSystemState)
 class LiveSystemStateAdmin(admin.ModelAdmin):
@@ -31,3 +31,18 @@ class TelemetrySnapshotAdmin(admin.ModelAdmin):
     
     # Prevents you from accidentally editing the auto-generated timestamps
     readonly_fields = ('recorded_date', 'recorded_time')
+
+
+@admin.register(MissionTelemetryLog)
+class MissionTelemetryLogAdmin(admin.ModelAdmin):
+    # What columns show up in the main list
+    list_display = ('session_id', 'recorded_at', 'battery', 'altitude_m', 'flight_time')
+    
+    # Adds a filter sidebar on the right
+    list_filter = ('recorded_at', 'session_id')
+    
+    # Adds a search bar at the top (Search by specific session ID!)
+    search_fields = ('session_id',)
+    
+    # Show the newest data at the top
+    ordering = ('-recorded_at',)

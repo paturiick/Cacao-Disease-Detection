@@ -7,6 +7,8 @@ class TelemetryReceiver:
     def __init__(self):
         self._stop = threading.Event()
         self._lock = threading.Lock()
+
+        self.current_session_id = None
         
         self._state = {
             "battery": 0, "alt_m": 0.0,

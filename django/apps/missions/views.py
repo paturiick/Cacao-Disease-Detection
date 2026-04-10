@@ -3,7 +3,7 @@ import json
 import uuid
 from django.utils import timezone
 
-from drone_controller.instance import get_video_receiver
+from drone_controller.instance import get_video_receiver, get_telemetry_receiver
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -128,6 +128,9 @@ def run_mission_view(request):
     receiver = get_video_receiver()
     receiver.current_session_id = new_session_id
     receiver.current_plan_id = historical_plan.id
+
+    telemetry = get_telemetry_receiver()
+    telemetry.current_session_id = new_session_id
     
     result = services.start_hardware_mission(steps, speed)    
     result["session_id"] = new_session_id 

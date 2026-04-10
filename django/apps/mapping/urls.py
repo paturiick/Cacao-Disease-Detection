@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+
 urlpatterns = [
-    path("ping/", views.ping),
+    path('capture-pods/', views.stream_capture_pods, name='capture-pods-stream'),
 ]
