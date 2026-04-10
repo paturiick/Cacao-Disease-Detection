@@ -10,7 +10,8 @@ class LiveSystemState(models.Model):
     last_error = models.CharField(max_length=100, blank=True, null=True)
 
 class TelemetrySnapshot(models.Model):
-    recorded_at = models.DateTimeField(auto_now_add=True)
+    recorded_date = models.DateField(auto_now_add=True)
+    recorded_time = models.TimeField(auto_now_add=True)
     connected = models.BooleanField(default=False)
     
     battery = models.IntegerField(null=True, blank=True)
@@ -40,8 +41,8 @@ class TelemetrySnapshot(models.Model):
     raw = models.TextField(blank=True, default="")
 
     class Meta:
-        ordering = ["-recorded_at"]
+        ordering = ["-recorded_date", "-recorded_time"]
         indexes = [
-            models.Index(fields=["-recorded_at"]),
-            models.Index(fields=["connected", "-recorded_at"]),
+            models.Index(fields=["-recorded_date", "-recorded_time"]),
+            models.Index(fields=["connected", "-recorded_date", "-recorded_time"]),
         ]

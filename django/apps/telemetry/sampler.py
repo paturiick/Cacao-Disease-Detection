@@ -3,6 +3,7 @@ import time
 from datetime import timedelta
 from django.utils import timezone
 from django.db import close_old_connections
+from django.db.models import Q
 
 from drone_controller.instance import get_drone_client, get_telemetry_receiver
 from .models import TelemetrySnapshot, LiveSystemState
@@ -63,7 +64,10 @@ def start_sampler(sample_every_s: float = 1.0):
                     )
                     
                     cutoff = timezone.now() - timedelta(hours=1)
-                    TelemetrySnapshot.objects.filter(recorded_at__lt=cutoff).delete()
+                    TelemetrySnapshot.objects.filter(
+                        Q(recorded_date__lt=cutoff.date()) | 
+                        Q(recorded_date=cutoff.date(), recorded_time__lt=cutoff.time())
+                    ).delete()
 
             except Exception as e:
                 print(f"SAMPLER CRASHED: {e}") 
