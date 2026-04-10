@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
+import DroneModel from '~/components/atoms/DroneModel.vue';
 
 const props = defineProps({
   queue: { type: Array, default: () => [] },
@@ -355,25 +356,12 @@ const getOpacity = (segId) => {
         </g>
       </g>
 
-      <g :transform="`translate(${currentDronePos.x}, ${currentDronePos.y}) rotate(${currentDroneYaw}) scale(7)`" class="transition-transform duration-[1200ms] ease-in-out pointer-events-none" filter="url(#soft-shadow)">
-        <circle v-if="props.isRunning" cx="-16" cy="-16" r="10" fill="#CBD5E1" opacity="0.3" class="animate-spin origin-[-16px_-16px]" />
-        <circle v-if="props.isRunning" cx="16" cy="-16" r="10" fill="#CBD5E1" opacity="0.3" class="animate-spin origin-[16px_-16px]" />
-        <circle v-if="props.isRunning" cx="-16" cy="16" r="10" fill="#CBD5E1" opacity="0.3" class="animate-spin origin-[-16px_16px]" />
-        <circle v-if="props.isRunning" cx="16" cy="16" r="10" fill="#CBD5E1" opacity="0.3" class="animate-spin origin-[16px_16px]" />
-        
-        <path d="M-14,-14 L14,14 M-14,14 L14,-14" stroke="#64748B" stroke-width="2" stroke-linecap="round" />
-        
-        <circle cx="-16" cy="-16" r="6" fill="#F8FAFC" stroke="#475569" stroke-width="1.5" />
-        <circle cx="16" cy="-16" r="6" fill="#F8FAFC" stroke="#475569" stroke-width="1.5" />
-        <circle cx="-16" cy="16" r="6" fill="#F8FAFC" stroke="#475569" stroke-width="1.5" />
-        <circle cx="16" cy="16" r="6" fill="#F8FAFC" stroke="#475569" stroke-width="1.5" />
-        
-        <rect x="-12" y="-12" width="24" height="24" rx="8" fill="#FFFFFF" stroke="#658D1B" stroke-width="1.5" />
-        
-        <rect x="-8" y="-14" width="16" height="8" rx="4" fill="#0F172A" />
-        <circle cx="-3" cy="-10" r="1.5" fill="#38BDF8" />
-        
-        <circle cx="0" cy="7" r="2.5" :fill="props.isRunning ? '#84CC16' : '#F1F5F9'" :class="props.isRunning ? 'animate-pulse' : ''" stroke="#E2E8F0" stroke-width="0.5" />
+      <g :transform="`translate(${currentDronePos.x}, ${currentDronePos.y}) rotate(${currentDroneYaw})`" filter="url(#soft-shadow)">
+        <DroneModel 
+          :isRunning="props.isRunning" 
+          :scale="7"
+          transform="scale(7)"
+        />
       </g>
     </svg>
   </div>
