@@ -1,13 +1,12 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { liveApi } from '~/sections/api/liveApi';
-import { isStreamActive, activeSessionId } from '~/components/composables/droneStore'; 
+import { isStreamActive, activeSessionId, isRecording } from '~/components/composables/droneStore'; 
 import { useTelemetry } from '~/components/composables/useTelemetry'; 
 
 const { telemetryState } = useTelemetry();
 const isLoading = ref(false);
 
-const isRecording = ref(false);
 const isRecordingLoading = ref(false);
 
 const streamTimestamp = ref(Date.now());

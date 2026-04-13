@@ -52,7 +52,6 @@ const showEditModal = ref(false);
 const editErrorMessage = ref('');
 const editIndex = ref(-1);
 
-// Added 'speed' to the edit form state
 const editForm = reactive({ type: '', val: '', speed: 30 });
 const editGoParams = reactive({ x: 0, y: 0, z: 0 });
 const editRcParams = reactive({ a: 0, b: 0, c: 0, d: 0, duration: 1 });
@@ -66,7 +65,6 @@ const openEditModal = (idx) => {
   editIndex.value = idx;
   editForm.type = item.type;
   
-  // Initialize speed from item or fallback to global params
   editForm.speed = item.speed || props.flightParams.speed || 30;
   
   if (item.type === 'go') { 
@@ -74,7 +72,6 @@ const openEditModal = (idx) => {
     editGoParams.x = parseInt(parts[0]) || 0; 
     editGoParams.y = parseInt(parts[1]) || 0; 
     editGoParams.z = parseInt(parts[2]) || 0; 
-    // If it's a 'go' command, the 4th part is often speed, extract it if present
     if (parts[3]) editForm.speed = parseInt(parts[3]);
   } 
   else if (item.type === 'rc') {
@@ -95,7 +92,6 @@ const saveEdit = () => {
   editErrorMessage.value = '';
   if (!editForm.type) { editErrorMessage.value = "Please select a command type."; return; }
   
-  // Validate Speed (Tello SDK requires 10-100 cm/s)
   if (editForm.speed < 10 || editForm.speed > 100) {
     editErrorMessage.value = "Safety Error: Speed must be between 10 and 100 cm/s.";
     return;
@@ -107,7 +103,6 @@ const saveEdit = () => {
     const { x, y, z } = editGoParams;
     if (x < -500 || x > 500 || y < -500 || y > 500 || z < -500 || z > 500) { editErrorMessage.value = "Safety Error: Coordinates must be between -500 and 500."; return; }
     if (x > -20 && x < 20 && y > -20 && y < 20 && z > -20 && z < 20) { editErrorMessage.value = "Safety Error: X, Y, and Z cannot all be between -20 and 20 at the same time."; return; }
-    // Include speed in the 'go' command string
     finalVal = `${x} ${y} ${z} ${editForm.speed}`;
   } 
   else if (editForm.type === 'rc') {
@@ -118,7 +113,6 @@ const saveEdit = () => {
   }
   else if (!editForm.val) { editErrorMessage.value = "Please enter a valid duration or value."; return; }
   
-  // Emit edit with both value and the specific speed
   emit('edit', { 
     index: editIndex.value, 
     type: editForm.type, 
@@ -126,6 +120,24 @@ const saveEdit = () => {
     speed: editForm.speed 
   });
   showEditModal.value = false;
+};
+
+// --- NEW FORMATTER HELPERS ---
+const getFormattedValue = (item) => {
+  if (item.type === 'rc') {
+    const p = String(item.val).split(' ');
+    return `Roll: ${p[0]} | Pitch: ${p[1]} | Thr: ${p[2]} | Yaw: ${p[3]} — ${p[4]}s`;
+  }
+  if (item.type === 'go') {
+    const p = String(item.val).split(' ');
+    return `X: ${p[0]}, Y: ${p[1]}, Z: ${p[2]}`;
+  }
+  return item.val;
+};
+
+const getFormattedUnit = (item) => {
+  if (item.type === 'rc' || item.type === 'go') return ''; 
+  return item.unit;
 };
 </script>
 
@@ -169,8 +181,8 @@ const saveEdit = () => {
               <MissionListItem 
                 :index="idx" 
                 :label="item.label" 
-                :value="item.val" 
-                :unit="item.unit" 
+                :value="getFormattedValue(item)" 
+                :unit="getFormattedUnit(item)" 
                 :icon="item.icon" 
                 :isActive="props.activeIndex === idx + 1" 
                 :isRunning="props.isRunning" 

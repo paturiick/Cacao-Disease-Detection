@@ -112,6 +112,20 @@ class MissionBuilder:
         self.steps.append(MissionStep(f"dumb {val}", float(val)))
         return self
 
+    # MOVED: This now correctly belongs to MissionBuilder!
+    def wrap_standard_flight(self):
+        """
+        Automatically brackets the current mission with a takeoff and landing
+        if they aren't already present.
+        """
+        if not self.steps or self.steps[0].cmd != "takeoff":
+            self.steps.insert(0, MissionStep("takeoff", 3.0))
+            
+        if self.steps[-1].cmd != "land":
+            self.steps.append(MissionStep("land", 1.0))
+            
+        return self
+
 
 class MissionExecutor:
     def __init__(self, client: TelloClient):
@@ -152,14 +166,10 @@ class MissionExecutor:
             is_dummy_mission = any(step.cmd.startswith("dumb") for step in steps)
             
             if not is_dummy_mission:
-                # 1. INITIAL TAKEOFF (Only runs if it's a real physical mission)
-                self.state["message"] = "Initiating Takeoff..."
-                self.client.send("takeoff")
-                # Wait longer for takeoff to stabilize before moving
-                time.sleep(5.0) 
+                # FIXED: Removed the hardcoded takeoff here!
 
                 # ==========================================
-                # 2. SET DYNAMIC HARDWARE SPEED
+                # 1. SET DYNAMIC HARDWARE SPEED
                 # ==========================================
                 # Ensure speed is strictly within Tello's 10-100 cm/s limit
                 safe_speed = max(10, min(100, speed))
@@ -237,27 +247,32 @@ class MissionExecutor:
                 # STANDARD DISCRETE COMMANDS (Blocking)
                 # ====================================================
                 else:
-                    response = self.client.send(step.cmd)
+                    response = self.client.send(step.cmd, timeout=15.0)
                     print(f"[DRONE RESPONSE] Tello replied: {response.text}\n", flush=True) 
                     
                     if not response or not getattr(response, 'ok', False):
                          raise Exception(f"Drone rejected command: {step.cmd}")
 
-                    time.sleep(max(2.0, step.delay_s)) 
+                    wait_time = max(2.0, step.delay_s)
+                    end_wait = time.time() + wait_time
+                    while time.time() < end_wait:
+                        if self._cancel_flag:
+                            break 
+                        time.sleep(0.1) 
 
             # 4. FINISH
             self.state["status"] = "completed"
             
             if not is_dummy_mission:
-                self.state["message"] = "Mission complete. Executing landing."
-                self.client.send("land")
+                # FIXED: Removed the hardcoded landing here!
+                self.state["message"] = "Sequence complete. Drone hovering."
             else:
                 self.state["message"] = "Dummy test complete. Drone remains grounded."
 
         except Exception as e:
             self.state["status"] = "failed"
             self.state["message"] = f"Hardware Error: {str(e)}"
-            # Try to land on failure ONLY if it took off
+            # Failsafe: Try to land on failure ONLY if it took off
             if not is_dummy_mission:
                 try:
                     self.client.send("land")

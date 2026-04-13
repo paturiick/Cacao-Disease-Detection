@@ -112,13 +112,13 @@ const handleSync = async () => {
   
   clearTimeout(timeoutTimer);
 
-  if (!didTimeout) {
+if (!didTimeout) {
     if (isConnected.value) {
       isError.value = false;
       syncMessage.value = 'Synced successfully!';
     } else {
       isError.value = true;
-      syncMessage.value = 'Cannot sync with the drone.';
+      syncMessage.value = 'Cannot reach Drone Wi-Fi.'; 
     }
     setTimeout(() => { syncMessage.value = ''; }, 5000);
   }

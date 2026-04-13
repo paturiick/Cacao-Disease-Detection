@@ -21,16 +21,15 @@ def start_hardware_mission(steps_data: list, speed: int = 30) -> dict:
     client = get_drone_client()
     executor = get_mission_executor()
     
-    # Safety check: Use the singleton client status to verify connection
     if not client.status().get("connected"):
         return {"ok": False, "text": "Drone is disconnected. Please Sync."}
         
     builder = MissionBuilder()
     
-    # Translate frontend JSON strings to SDK builder methods
     for step in steps_data:
-        cmd_type = step.get("type", "").lower()
-        val_str = str(step.get("val", "0"))
+        # FIXED: Check for both 'type' (from planner) and 'command' (from RC panel)
+        cmd_type = step.get("type", step.get("command", "")).lower()
+        val_str = str(step.get("val", step.get("value", "0")))
         
         try: 
             val = int(val_str)
@@ -47,17 +46,35 @@ def start_hardware_mission(steps_data: list, speed: int = 30) -> dict:
         elif cmd_type == "ccw": builder.ccw_deg(val)
         elif cmd_type == "dumb": builder.dumb_wait(val)
         elif cmd_type == "hover": builder.hover()
+        
+        # NEW: Added missing RC Control Panel mappings
+        elif cmd_type == "takeoff": builder.takeoff()
+        elif cmd_type == "land": builder.land()
+        elif cmd_type == "rc":
+            parts = val_str.split()
+            if len(parts) >= 4:
+                # Grab the movement forces
+                a, b, c, d = int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3])
+                
+                duration = float(parts[4]) if len(parts) >= 5 else 5.0
+                
+                # Pass it to the builder
+                builder.rc(a, b, c, d, duration_s=duration)
         elif cmd_type == "go":
             parts = val_str.split()
             if len(parts) >= 3:
                 builder.go_xyz(
-                    int(parts[0]), 
-                    int(parts[1]), 
-                    int(parts[2]), 
+                    int(parts[0]), int(parts[1]), int(parts[2]), 
                     int(parts[3]) if len(parts) == 4 else speed
                 )
 
-    # Trigger the background executor thread using the singleton
+    # FIXED: Check if this is a standard drawn mission or just a live RC override
+    is_live_override = any(cmd in [s.get("command", "") for s in steps_data] for cmd in ["takeoff", "land", "rc"])
+    
+    if not is_live_override:
+        # It's a standard drawn mission queue. Add the safe takeoff and landing brackets!
+        builder.wrap_standard_flight()
+
     success, text = executor.run_async(builder.steps, speed)
     return {"ok": success, "text": text}
 

@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "apps.missions",
     "apps.live",
     "apps.mapping",
+    "apps.reports",
     "apps.detections.apps.DetectionsConfig",
 ]
 
