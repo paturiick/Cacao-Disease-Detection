@@ -61,6 +61,8 @@ class VideoReceiver:
     def stop(self):
         """Kills the thread and cleans up memory."""
         print("[VIDEO] Stopping stream...")
+
+        self.stop_recording()
         
         # Trigger the kill switch for the currently active thread
         if self._current_stop_event:

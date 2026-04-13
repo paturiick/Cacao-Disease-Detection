@@ -19,6 +19,11 @@ class DetectedCacao(models.Model):
     session = models.ForeignKey(CacaoDetectionLog, related_name='detected_pods', on_delete=models.CASCADE)
     track_id = models.IntegerField() 
     status = models.CharField(max_length=20)  
+
+    image = models.ImageField(upload_to='detections/', null=True, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    
     first_seen = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(auto_now=True)
 

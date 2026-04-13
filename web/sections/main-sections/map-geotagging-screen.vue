@@ -3,6 +3,8 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 
 // --- Global Telemetry Store ---
 import { useTelemetry } from '~/components/composables/useTelemetry';
+import { mappingApi } from '~/sections/api/mappingApi';
+import { activeSessionId } from '~/components/composables/droneStore';
 
 // --- Components ---
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
@@ -14,24 +16,23 @@ import LiveMapCard from '~/components/molecules/map_geotagging_molecules/LiveMap
 const { telemetryState, startPolling, stopPolling } = useTelemetry();
 
 // --- Local State ---
-const detectedTreesArray = ref([
-  // Image detected trees will populate here
-]);
+const detectedTreesArray = ref([]);
 
 const healthyCount = computed(() => detectedTreesArray.value.filter(tree => tree.status === 'healthy').length);
 const diseasedCount = computed(() => detectedTreesArray.value.filter(tree => tree.status === 'diseased').length);
 
-// 2. Computed GPS Data Wrapper
-// This automatically pushes the latest global telemetry down to your UI cards
-// 2. Computed GPS Data Wrapper
+let mappingSource = null;
+
+// Ensure Vue knows where your Django server is to fetch the images
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 const gpsData = computed(() => {
-  
   // 1. Calculate the color first
   let batColor = 'bg-red-500'; 
   if (telemetryState.battery >= 50) {
     batColor = 'bg-green-500'; 
   } else if (telemetryState.battery >= 20) {
-    batColor = 'bg-yellow-500'; // <-- 28% will trigger this!
+    batColor = 'bg-yellow-500'; 
   }
 
   // 2. Return it inside the object
@@ -45,7 +46,7 @@ const gpsData = computed(() => {
     speed: telemetryState.speed,
     
     battery: telemetryState.battery,
-    batteryColor: batColor, // <--- THIS IS THE MAGIC LINK!
+    batteryColor: batColor, 
     
     pitch: telemetryState.pitch,
     roll: telemetryState.roll,
@@ -58,17 +59,44 @@ const gpsData = computed(() => {
     diseased: diseasedCount.value 
   };
 });
+
 const signalStatus = computed(() => telemetryState.connected ? 'Online' : 'Offline');
 
 // --- Lifecycle Hooks ---
 onMounted(() => {
-  // Start the global hardware polling when the user opens the map
   startPolling();
+
+  // Grab the active session from your store, or default to latest
+  const currentSessionId = activeSessionId.value || "latest"; 
+  
+  mappingSource = mappingApi.connectCaptureStream(currentSessionId);
+  
+  if (mappingSource) {
+    mappingSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.pods) {
+        detectedTreesArray.value = data.pods.map(p => {
+          const captureDate = new Date(p.first_seen);
+          return {
+            id: p.track_id,
+            // Prepend BASE_URL so the image loads correctly from Django
+            imageUrl: p.image ? `${BASE_URL}/media/${p.image}` : null,
+            status: p.status === 'unhealthy' ? 'diseased' : 'healthy',
+            lat: p.latitude ? p.latitude.toFixed(6) : 'N/A',
+            lng: p.longitude ? p.longitude.toFixed(6) : 'N/A',
+            recordedDate: captureDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+            recordedTime: captureDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+          };
+        });
+      }
+    };
+  }
 });
 
 onUnmounted(() => {
-  // Cleanly stop the polling when leaving the page
   stopPolling();
+  if (mappingSource) mappingSource.close();
 });
 </script>
 
@@ -90,11 +118,14 @@ onUnmounted(() => {
         </div>
         
         <div class="w-full xl:w-2/5 h-full">
-          <TreeDataCard :detected-trees="detectedTrees" />
+          <TreeDataCard :detected-trees="detectedTreesArray" />
         </div>
 
         <div class="w-full xl:flex-1 h-full">
-          <LiveMapCard :gps-data="gpsData" />
+          <LiveMapCard 
+            :gps-data="gpsData" 
+            :trees="detectedTreesArray" 
+          />
         </div>
 
       </div>

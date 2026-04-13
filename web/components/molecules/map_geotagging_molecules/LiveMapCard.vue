@@ -4,6 +4,8 @@ import BaseCard from '~/components/atoms/BaseCard.vue';
 import IconMap from '~/components/atoms/IconMap.vue';
 import MapCanvas from '~/components/atoms/MapCanvas.vue'; 
 
+const mapRef = ref(null);
+
 defineProps({
   gpsData: {
     type: Object,
@@ -25,6 +27,11 @@ const zoomIn = () => {
 const zoomOut = () => {
   if (currentZoom.value > 1) currentZoom.value -= 1;
 };
+
+const recenterMap = () => {
+  mapRef.value?.recenter(); 
+};
+
 </script>
 
 <template>
@@ -55,14 +62,26 @@ const zoomOut = () => {
         </button>
         <button 
           @click="zoomOut" 
-          class="w-8 h-8 flex items-center justify-center font-black text-gray-700 hover:bg-gray-100 text-lg transition-colors" 
+          class="w-8 h-8 flex items-center justify-center font-black text-gray-700 hover:bg-gray-100 border-b border-gray-200 text-lg transition-colors" 
           title="Zoom Out"
         >
           −
         </button>
+
+        <button 
+          @click="recenterMap" 
+          class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-gray-100 transition-colors" 
+          title="Recenter Drone"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M3 12h3m12 0h3M12 3v3m0 12v3" />
+          </svg>
+        </button>
       </div>
 
       <MapCanvas 
+        ref="mapRef"
         :heading="gpsData.heading" 
         :lat="gpsData.lat"
         :lng="gpsData.lng"

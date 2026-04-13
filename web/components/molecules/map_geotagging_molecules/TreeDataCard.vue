@@ -1,29 +1,44 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import BaseCard from '~/components/atoms/BaseCard.vue';
 import SectionHeader from '~/components/atoms/SectionHeader.vue';
 
 const props = defineProps({
-  selectedIndex: { type: Number, default: 0 },
-  // These URLs are now optimized for speed (smaller dimensions & lower quality)
+  // The live array of detections passed from the main screen
   detectedTrees: {
-
-    // These data are just STATIC IMAGES for testing purposes.
     type: Array,
-    default: () => [
-      { id: 1, status: 'diseased', imageUrl: 'https://images.unsplash.com/photo-1597848212624-a19eb35e2656?w=600&q=60&auto=format' },
-      { id: 2, status: 'healthy',  imageUrl: 'https://images.unsplash.com/photo-1528183429752-a97d0bf99b5a?w=600&q=60&auto=format' },
-      { id: 3, status: 'diseased', imageUrl: 'https://images.unsplash.com/photo-1505672678657-cc7037095e60?w=600&q=60&auto=format' },
-      { id: 4, status: 'healthy',  imageUrl: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=600&q=60&auto=format' },
-      { id: 5, status: 'healthy',  imageUrl: 'https://images.unsplash.com/photo-1466692476877-626759c5d013?w=600&q=60&auto=format' },
-      { id: 6, status: 'diseased', imageUrl: 'https://images.unsplash.com/photo-1504567961542-e24d9439a724?w=600&q=60&auto=format' }
-    ]
+    default: () => [] 
   }
 });
 
-const currentTree = computed(() => {
-  return props.detectedTrees[props.selectedIndex] || null;
+/** * Local state for the carousel navigation.
+ * Jason, since you are a full-stack developer, this simple index-based 
+ * approach is the most efficient for your Nuxt/Vue frontend.
+ */
+const currentIndex = ref(0);
+
+// Automatically reset the index if the drone starts a new mission/session
+watch(() => props.detectedTrees.length, (newLength) => {
+  if (newLength === 0) currentIndex.value = 0;
 });
+
+// Derives the currently viewed pod from the array
+const currentTree = computed(() => {
+  return props.detectedTrees[currentIndex.value] || null;
+});
+
+// Navigation logic for the carousel
+const nextTree = () => {
+  if (currentIndex.value < props.detectedTrees.length - 1) {
+    currentIndex.value++;
+  }
+};
+
+const prevTree = () => {
+  if (currentIndex.value > 0) {
+    currentIndex.value--;
+  }
+};
 </script>
 
 <template>
@@ -34,32 +49,71 @@ const currentTree = computed(() => {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       </template>
-      Captured Detections
+      Captured Detections ({{ detectedTrees.length }})
     </SectionHeader>
 
-    <div class="mt-4 flex-1 relative bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center">
+    <div class="mt-4 flex-1 relative bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center group">
       <template v-if="currentTree">
         <img 
-          :key="currentTree.imageUrl"
+          :key="currentTree.id"
           :src="currentTree.imageUrl" 
           class="w-full h-full object-cover" 
-          loading="lazy"
+          alt="Detected Cacao Pod"
         />
         
         <div 
           class="absolute top-4 left-4 px-3 py-1.5 rounded-md text-[10px] font-black uppercase shadow-lg border backdrop-blur-md text-white transition-colors duration-300"
           :class="currentTree.status === 'diseased' ? 'bg-red-500/90 border-red-400' : 'bg-green-500/90 border-green-400'"
         >
-          {{ currentTree.status === 'diseased' ? 'Black Pod Detected' : 'Healthy Tree' }}
+          {{ currentTree.status === 'diseased' ? 'Black Pod Detected' : 'Healthy Cacao' }}
         </div>
         
         <div class="absolute top-4 right-4 bg-black/60 backdrop-blur px-3 py-1 rounded text-white text-[10px] font-mono border border-white/20">
-          INDEX: {{ selectedIndex + 1 }}
+          INDEX: {{ currentIndex + 1 }} / {{ detectedTrees.length }}
+        </div>
+
+        <button 
+          v-if="currentIndex > 0" 
+          @click="prevTree"
+          class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-[#658D1B] text-white p-2 rounded-full backdrop-blur-sm transition-all shadow-lg border border-white/10 opacity-0 group-hover:opacity-100 z-10"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+
+        <button 
+          v-if="currentIndex < detectedTrees.length - 1" 
+          @click="nextTree"
+          class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-[#658D1B] text-white p-2 rounded-full backdrop-blur-sm transition-all shadow-lg border border-white/10 opacity-0 group-hover:opacity-100 z-10"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+
+        <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-12 pb-4 px-4 pointer-events-none">
+          <div class="flex justify-between items-end text-white font-mono">
+            <div class="text-[10px]">
+              <div class="text-white/50 uppercase text-[8px] mb-1">Location</div>
+              <div>LAT: {{ currentTree.lat }}</div>
+              <div>LNG: {{ currentTree.lng }}</div>
+            </div>
+
+            <div class="text-right text-[10px]">
+              <div class="text-white/50 uppercase text-[8px] mb-1">Recorded At</div>
+              <div>{{ currentTree.recordedDate }}</div>
+              <div>{{ currentTree.recordedTime }}</div>
+            </div>
+          </div>
         </div>
       </template>
       
-      <div v-else class="text-white text-xs opacity-40 italic">
-        Select a capture to preview
+      <div v-else class="text-white text-xs opacity-40 italic flex flex-col items-center gap-2">
+        <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        Awaiting drone captures...
       </div>
     </div>
   </BaseCard>

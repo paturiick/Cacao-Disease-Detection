@@ -9,6 +9,17 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
+import os
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# (Assuming BASE_DIR is defined at the top of your settings.py)
+
+# URL that Vue uses
+MEDIA_URL = '/media/'
+
+# The physical folder where Django should save/look for images
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 from pathlib import Path
 
@@ -56,6 +67,7 @@ INSTALLED_APPS = [
     "apps.missions",
     "apps.live",
     "apps.mapping",
+    "apps.reports",
     "apps.detections.apps.DetectionsConfig",
 ]
 

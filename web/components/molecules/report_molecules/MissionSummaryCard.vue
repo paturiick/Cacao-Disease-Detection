@@ -241,7 +241,7 @@ onUnmounted(() => {
         
         <div v-show="activeRightTab === 'database'" class="flex-1 flex flex-col overflow-hidden">
           <div class="grid grid-cols-5 bg-slate-50 border-b border-slate-200 p-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0 print:bg-white print:border-black">
-            <div class="col-span-1 text-center">Tree ID</div>
+            <div class="col-span-1 text-center">Pod ID</div>
             <div class="col-span-1">Latitude</div>
             <div class="col-span-1">Longitude</div>
             <div class="col-span-1 text-center">Accuracy</div>

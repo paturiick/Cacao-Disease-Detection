@@ -4,53 +4,60 @@ import DashboardNavBar from '~/components/organisms/NavBar.vue';
 
 // 1. IMPORT TELEMETRY COMPOSABLE (This was missing)
 import { useTelemetry } from "~/components/composables/useTelemetry"; 
+import { reportApi } from '~/sections/api/reportApi'; // Adjust path as needed
 
 import MissionHistory from '~/components/molecules/report_molecules/MissionHistory.vue';
 import DetectionStatisticsCard from '~/components/molecules/report_molecules/DetectionStatisticsCard.vue';
 import FlightStatisticsCard from '~/components/molecules/report_molecules/FlightStatisticsCard.vue';
 import MissionSummaryCard from '~/components/molecules/report_molecules/MissionSummaryCard.vue';
 
-// 2. INITIALIZE TELEMETRY 
-const { telemetryState, startPolling, stopPolling } = useTelemetry();
+// --- MAKE SURE THESE 3 LINES EXIST ---
+const missions = ref([]); 
+const selectedMissionId = ref(null); // <-- This is what H3 is complaining about!
+const activeMissionData = ref(null); 
+// -------------------------------------
 
-// 3. DEFINE SIGNAL STATUS (This was missing, causing an error)
+// Telemetry State
+const { telemetryState, startPolling, stopPolling } = useTelemetry();
 const signalStatus = computed(() => telemetryState.connected ? 'Online' : 'Offline');
 
-// 4. START/STOP POLLING ON MOUNT
 onMounted(() => {
   startPolling();
+  fetchMissionList();
 });
 
 onUnmounted(() => {
   stopPolling();
 });
 
-//Sample Database State
-const missions = ref([
-  { 
-    id: 1, name: 'Mission 1 ', altitude_m: 1, speed: 5, mode: 'Stabilize', date: '2026-03-07',
-    telemetry: { recorded_at: '2026-03-07', battery_end: 28, max_altitude: 1, flight_time: 379, avg_temp: 90 },
-    detection: { total_pods: 80, unhealthy: 30 },
-    trees: [ { tree_id: 1, lat: 8.49918863, lon: 124.3104652, accuracy: 90 } ],
-    steps: [ { step_id: 82, order: 2, command: 'right', value: 150 }, 
-              { step_id: 83, order: 3, command: 'down', value: 100 },
-              { step_id: 84, order: 4, command: 'left', value: 150 }
-    ]
-  },
-  { 
-    id: 2, name: 'Mission 2', altitude_m: 2, speed: 10, mode: 'Stabilize', date: '2026-03-05',
-    telemetry: { recorded_at: '2026-03-05', battery_end: 45, max_altitude: 2.1, flight_time: 450, avg_temp: 88 },
-    detection: { total_pods: 120, unhealthy: 15 },
-    trees: [ { tree_id: 101, lat: 8.500123, lon: 124.320123, accuracy: 95 } ],
-    steps: [ { step_id: 90, order: 1, command: 'up', value: 200 } ]
+const fetchMissionList = async () => {
+  try {
+    const data = await reportApi.getHistory();
+    missions.value = data.missions || [];
+    
+    if (missions.value.length > 0) {
+      selectedMissionId.value = missions.value[0].id;
+    }
+  } catch (error) {
+    console.error("Failed to load mission history:", error);
   }
-]);
+};
 
-const selectedMissionId = ref(missions.value[0]?.id || null);
+watch(selectedMissionId, async (newId) => {
+  if (!newId) return;
+  
+  try {
+    const data = await reportApi.getMissionReport(newId);
+    activeMissionData.value = data;
+  } catch (error) {
+    console.error(`Failed to fetch report for mission ${newId}:`, error);
+    activeMissionData.value = null; 
+  }
+});
 
 const activeMission = computed(() => {
-  return missions.value.find(m => m.id === selectedMissionId.value) || {
-    id: '--', name: 'No Mission Selected', altitude_m: 0, speed: 0, mode: '--', date: '--',
+  return activeMissionData.value || {
+    id: '--', name: 'Loading...', altitude_m: 0, speed: 0, mode: '--', date: '--',
     telemetry: {}, detection: { total_pods: 0, unhealthy: 0 }, trees: [], steps: []
   };
 });

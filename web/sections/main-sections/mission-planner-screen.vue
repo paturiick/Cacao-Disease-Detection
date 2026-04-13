@@ -71,7 +71,9 @@ const commandOptions = [
   { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: CounterClockwiseIcon},
   { label: 'Hover',       value: 'hover',   unit: 's',   icon: HoverIcon },
   { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z spd', icon: `<svg...` },
-  { label: 'RC Override', value: 'rc', unit: 'a b c d', icon: HoverIcon }
+  { label: 'RC Override', value: 'rc', unit: 'a b c d', icon: HoverIcon },
+
+  { label: 'Dumb Wait (Test)', value: 'dumb', unit: 's', icon: HoverIcon }
 ];
 
 const decorateStep = (stepDto) => {

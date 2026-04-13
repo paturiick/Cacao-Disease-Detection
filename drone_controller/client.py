@@ -28,11 +28,11 @@ class TelloClient:
     def connect(self) -> DroneReply:
         return self.send("command")
 
-    def send(self, cmd: str) -> DroneReply:
+    def send(self, cmd: str, timeout: float = None) -> DroneReply:
         """Sends a command to the Tello and waits for a specific 'ok' or 'error' response."""
         t0 = time.time()
 
-        # 1. FLUSH RECEIVE BUFFER
+        wait_time = timeout if timeout is not None else CMD_TIMEOUT_S
         # We set to non-blocking to 'vacuum' any old data out of the socket
         self.sock.setblocking(False)
         try:
@@ -44,7 +44,7 @@ class TelloClient:
             pass 
         finally:
             # Re-enable blocking mode for the actual response wait
-            self.sock.setblocking(True)
+            self.sock.settimeout(wait_time)
 
         with self._lock:
             self._last["cmd"] = cmd

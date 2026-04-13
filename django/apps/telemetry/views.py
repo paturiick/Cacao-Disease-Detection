@@ -1,13 +1,16 @@
 import asyncio
 import json
+import datetime
 from django.http import StreamingHttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.core.serializers.json import DjangoJSONEncoder  # <-- 1. NEW IMPORT
 from asgiref.sync import sync_to_async
 from .models import TelemetrySnapshot, LiveSystemState
 
+# UPDATED FIELDS: Replaced "recorded_at" with "recorded_date" and "recorded_time"
 TELEMETRY_FIELDS = [
-    "recorded_at", "connected", "battery", "altitude_m",
+    "recorded_date", "recorded_time", "connected", "battery", "altitude_m",
     "pitch", "roll", "yaw", "tof_cm", "temp_c", "templ_c",
     "vgx", "vgy", "vgz", "agx", "agy", "agz", 
     "baro", "flight_time", "gps_lat", "gps_lon"
@@ -21,6 +24,12 @@ def get_system_state():
 @require_http_methods(["GET"])
 def latest(request):
     row = TelemetrySnapshot.objects.values(*TELEMETRY_FIELDS).first()
+    
+    # Re-inject 'recorded_at' for the frontend
+    if row and row.get('recorded_date') and row.get('recorded_time'):
+        dt = datetime.datetime.combine(row['recorded_date'], row['recorded_time'])
+        row['recorded_at'] = dt.isoformat()
+        
     return JsonResponse(row or {}, safe=False)
 
 @require_http_methods(["GET"])
@@ -31,13 +40,24 @@ def recent(request):
         limit = 300
     limit = max(1, min(limit, 5000))
     rows = list(TelemetrySnapshot.objects.values(*TELEMETRY_FIELDS)[:limit])
+    
+    # Re-inject 'recorded_at' for the frontend on all rows
+    for row in rows:
+        if row.get('recorded_date') and row.get('recorded_time'):
+            dt = datetime.datetime.combine(row['recorded_date'], row['recorded_time'])
+            row['recorded_at'] = dt.isoformat()
+
     return JsonResponse({"items": rows, "context": "xxxxxxxxx"})
 
 @sync_to_async
 def get_latest_telemetry():
     row = TelemetrySnapshot.objects.values(*TELEMETRY_FIELDS).first()
-    if row and 'recorded_at' in row and row['recorded_at']:
-        row['recorded_at'] = row['recorded_at'].isoformat()
+    
+    # Combine date and time into an ISO format string
+    if row and row.get('recorded_date') and row.get('recorded_time'):
+        dt = datetime.datetime.combine(row['recorded_date'], row['recorded_time'])
+        row['recorded_at'] = dt.isoformat()
+        
     return row
 
 async def stream_telemetry(request):
@@ -48,7 +68,9 @@ async def stream_telemetry(request):
             if data:
                 current_timestamp = data.get('recorded_at')
                 if current_timestamp != last_timestamp:
-                    yield f"data: {json.dumps(data)}\n\n"
+                    # 2. UPDATED LOGIC: Tell json.dumps how to handle Date/Time objects
+                    json_data = json.dumps(data, cls=DjangoJSONEncoder)
+                    yield f"data: {json_data}\n\n"
                     last_timestamp = current_timestamp
             await asyncio.sleep(0.5)
     return StreamingHttpResponse(event_stream(), content_type='text/event-stream')

@@ -2,13 +2,14 @@ from .client import TelloClient
 from .live import VideoReceiver
 from .telemetry import TelemetryReceiver
 from .missions import MissionExecutor, MissionBuilder
+from .instance import get_drone_client, get_video_receiver, get_telemetry_receiver, get_mission_executor
 
 class DroneBrain:
     def __init__(self):
-        self.client = TelloClient()
-        self.telemetry = TelemetryReceiver()
-        self.video = VideoReceiver()
-        self.mission_executor = MissionExecutor(self.client)
+        self.client = get_drone_client()
+        self.telemetry = get_telemetry_receiver()
+        self.video = get_video_receiver()
+        self.mission_executor = get_mission_executor()
 
     def connect_and_initialize(self) -> bool:
         """Connects to the drone and starts all background services."""
@@ -30,9 +31,12 @@ class DroneBrain:
 
     def shutdown(self):
         """Safely stops streams and threads."""
-        self.client.send("streamoff")
+
+        self.video.stop() 
         self.telemetry.stop()
-        self.video.stop()
+
+        self.client.send("streamoff")
+
         self.client._connected = False
         print("Drone disconnected and background threads stopped.")
 

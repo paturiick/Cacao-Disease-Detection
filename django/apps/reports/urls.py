@@ -1,5 +1,8 @@
+# apps/reports/urls.py
 from django.urls import path
 from . import views
+
 urlpatterns = [
-    path("ping/", views.ping),
+    path('history/', views.get_mission_history, name='mission-history'),
+    path('mission/<int:mission_id>/', views.get_mission_report, name='mission-report'),
 ]
