@@ -125,6 +125,15 @@ class MissionBuilder:
             self.steps.append(MissionStep("land", 1.0))
             
         return self
+    def motor_on(self, delay_s: float = 1.0):
+        """Spins the motors at low RPM for cooling (Router Mode)."""
+        self.steps.append(MissionStep("motoron", delay_s))
+        return self
+
+    def motor_off(self, delay_s: float = 1.0):
+        """Stops the cooling motors."""
+        self.steps.append(MissionStep("motoroff", delay_s))
+        return self
 
 
 class MissionExecutor:

@@ -13,12 +13,17 @@ class DroneBrain:
 
     def connect_and_initialize(self) -> bool:
         """Connects to the drone and starts all background services."""
+
+        self.telemetry.stop()
+        time.sleep(0.5)
+
         print("Connecting to drone...")
         reply = self.client.connect()
         
         if reply.ok:
             print("Connected! Initializing subsystems...")
-            # Start telemetry polling
+
+            self.client.start_heartbeat()
             self.telemetry.start()
             
             # Enable video streaming on the drone and start local receiver
@@ -34,6 +39,7 @@ class DroneBrain:
 
         self.video.stop() 
         self.telemetry.stop()
+        self.client.stop_heartbeat()
 
         self.client.send("streamoff")
 
