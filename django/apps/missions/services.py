@@ -46,6 +46,9 @@ def start_hardware_mission(steps_data: list, speed: int = 30) -> dict:
         elif cmd_type == "ccw": builder.ccw_deg(val)
         elif cmd_type == "dumb": builder.dumb_wait(val)
         elif cmd_type == "hover": builder.hover()
+
+        elif cmd_type in ["motor_on", "motoron"]: builder.motor_on(val if val > 0 else 1.0)
+        elif cmd_type in ["motor_off", "motoroff"]: builder.motor_off(val if val > 0 else 1.0)
         
         # NEW: Added missing RC Control Panel mappings
         elif cmd_type == "takeoff": builder.takeoff()

@@ -7,7 +7,8 @@ const props = defineProps({
   lat: { type: Number, default: 0 },
   lng: { type: Number, default: 0 },
   heading: { type: Number, default: 0 },
-  zoom: { type: Number, default: 18 },
+  // 1. INCREASED INITIAL ZOOM: Set to 21 based on your reference image
+  zoom: { type: Number, default: 21 },
   // Array of detection objects from map-geotagging-screen.vue
   trees: { type: Array, default: () => [] }
 });
@@ -19,7 +20,6 @@ let treeLayerGroup = null; // Layer group for dynamic cacao pod markers
 let L = null;
 
 // --- STATE: MAP TRACKING ---
-// Tracks whether the camera should auto-follow the drone
 const isTracking = ref(true);
 
 const recenterMap = () => {
@@ -32,7 +32,6 @@ const recenterMap = () => {
   }
 };
 
-// Exposing for parent components that might use either naming convention
 defineExpose({
   recenter: recenterMap,
   recenterMap
@@ -42,14 +41,13 @@ defineExpose({
 const getDroneIcon = (heading) => {
   const tempContainer = document.createElement('div');
 
-  // REDUCED SIZE: Changed from 56px to 36px to look like a proper map marker
-  const vnode = createVNode('div', { class: 'relative flex items-center justify-center w-[36px] h-[36px]' }, [
+  const vnode = createVNode('div', { class: 'relative flex items-center justify-center w-[24px] h-[24px]' }, [
     createVNode('div', { class: 'absolute w-full h-full bg-[#658D1B]/30 rounded-full animate-ping' }),
     
     createVNode('svg', {
       viewBox: '-24 -24 48 48',
-      class: 'relative z-10 w-9 h-9', // w-9 is 36px
-      style: `transform: rotate(${heading}deg); transition: transform 0.3s ease-out; filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.5));`
+      class: 'relative z-10 w-6 h-6', 
+      style: `transform: rotate(${heading}deg); transition: transform 0.3s ease-out; filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.5));`
     }, [
       createVNode(DroneModel, { isRunning: true })
     ])
@@ -59,8 +57,8 @@ const getDroneIcon = (heading) => {
 
   return L.divIcon({
     className: 'bg-transparent',
-    iconSize: [36, 36],     // Scaled down
-    iconAnchor: [18, 18],   // Centered for the new 36px size
+    iconSize: [24, 24],     
+    iconAnchor: [12, 12],   
     html: tempContainer.innerHTML
   });
 };
@@ -69,34 +67,22 @@ const getDroneIcon = (heading) => {
 const renderTrees = (trees) => {
   if (!map || !L || !treeLayerGroup) return;
 
-  // Clear existing markers before re-rendering the updated list
   treeLayerGroup.clearLayers();
 
   trees.forEach(tree => {
-    // RED for diseased (unhealthy), GREEN for healthy
     const statusColor = tree.status === 'diseased' ? '#ef4444' : '#22c55e';
     
-    // Core dot representing the detection location
+    // 2. ADJUSTED PIN SIZE: radius increased to 5 for better visibility at high zoom
     const marker = L.circleMarker([tree.lat, tree.lng], {
-      radius: 6,
-      color: '#ffffff', // White border for visual clarity
-      weight: 2,
+      radius: 5, 
+      color: '#ffffff', 
+      weight: 1.5,        
       fillColor: statusColor,
       fillOpacity: 1
     });
 
-    // Optional: Accuracy/Detection radius ring
-    if (tree.accuracy) {
-        L.circle([tree.lat, tree.lng], {
-          radius: tree.accuracy,
-          color: statusColor,
-          weight: 1,
-          fillColor: statusColor,
-          fillOpacity: 0.15
-        }).addTo(treeLayerGroup);
-    }
+    // Green area/Accuracy ring remains removed as requested
 
-    // Attach a popup for detailed view upon clicking the marker
     marker.bindPopup(`
       <div class="font-sans text-center min-w-[120px] p-1">
         <div class="text-[10px] font-bold uppercase tracking-wider mb-2" style="color: ${statusColor}">
@@ -116,7 +102,6 @@ const renderTrees = (trees) => {
 onMounted(async () => {
   L = (await import('leaflet')).default;
 
-  // Center map on drone, or default coordinates if GPS isn't locked
   const startLat = (props.lat !== 0) ? props.lat : 8.49918;
   const startLng = (props.lng !== 0) ? props.lng : 124.31046;
 
@@ -129,13 +114,10 @@ onMounted(async () => {
     attribution: '© Google'
   }).addTo(map);
 
-  // Initialize and attach the LayerGroup to the map for dynamic pod rendering
   treeLayerGroup = L.layerGroup().addTo(map);
 
-  // Initial render of existing trees
   renderTrees(props.trees);
 
-  // If the user drags the map manually, turn off auto-tracking so they aren't forced back
   map.on('dragstart', () => {
     isTracking.value = false;
   });
@@ -147,14 +129,10 @@ onMounted(async () => {
   }
 });
 
-// --- Watchers for Reactive Updates ---
-
-// Watch for new detections (SSE stream updates the trees array)
 watch(() => props.trees, (newTrees) => {
   renderTrees(newTrees);
 }, { deep: true });
 
-// Watch for Drone Movement & Orientation
 watch(() => [props.lat, props.lng, props.heading], ([newLat, newLng, newHeading]) => {
   if (newLat !== 0 && newLng !== 0 && map && L) {
     if (droneMarker) {
@@ -166,7 +144,6 @@ watch(() => [props.lat, props.lng, props.heading], ([newLat, newLng, newHeading]
       }).addTo(map);
     }
     
-    // Only pan the map if the user hasn't dragged away (isTracking is true)
     if (isTracking.value) {
       map.panTo([newLat, newLng]);
     }

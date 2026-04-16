@@ -1,9 +1,11 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router'; // <-- Added this to auto-detect the URL
+import { useRoute } from 'vue-router'; 
 import { useDrone } from '~/sections/api/statusApi.js'; 
 
-import { telemetryApi } from '~/sections/api/telemetryApi.js';
+import { useTelemetry } from '~/components/composables/useTelemetry.js';
+
+import { missionApi } from '~/sections/api/missionApi.js';
 
 import NavBarBranding from '~/components/molecules/NavBarBranding.vue';
 import ActivePageBanner from '~/components/molecules/ActivePageBanner.vue';
@@ -13,6 +15,29 @@ import IconPlane from '~/components/atoms/IconPlane.vue';
 import IconWifi from '~/components/atoms/IconWifi.vue';
 import IconMap from '~/components/atoms/IconMap.vue';
 import IconReport from '~/components/atoms/IconReport.vue';
+
+const { telemetryState, startPolling, stopPolling } = useTelemetry();
+
+onMounted(() => startPolling());
+onUnmounted(() => stopPolling());
+
+const getSignalColor = (type, value) => {
+  if (type === 'snr') {
+    // 5GHz SNR: >25 excellent, 15-25 good, <15 poor
+    if (value >= 25) return 'text-emerald-500';
+    if (value >= 15) return 'text-amber-500';
+    return 'text-red-500';
+  }
+  
+  if (type === 'rssi') {
+    // 2.4GHz RSSI: >-60 excellent, -60 to -80 fair, <-80 poor
+    if (value >= -60) return 'text-emerald-500';
+    if (value >= -80) return 'text-amber-500';
+    return 'text-red-500';
+  }
+  
+  return 'text-gray-400';
+};
 
 // 1. Removed activePage from props (it's automatic now!)
 const props = defineProps({
@@ -50,50 +75,6 @@ const logout = () => navigateTo('/login');
 const syncMessage = ref('');
 const isError = ref(false);
 
-// --- BLUETOOTH STATE ---
-const isBtConnecting = ref(false);
-const isBtConnected = ref(false);
-
-onMounted(async () => {
-  try {
-    const state = await telemetryApi.getBluetoothState();
-    isBtConnected.value = state.active;
-  } catch (error) {
-    console.error("Failed to fetch initial BLE state:", error);
-  }
-});
-
-const handleBtSync = async () => {
-  if (isBtConnecting.value) return;
-  
-  syncMessage.value = '';
-  isError.value = false;
-  isBtConnecting.value = true;
-  
-  // Determine if we are turning it ON or OFF
-  const targetState = !isBtConnected.value;
-
-  try {
-    // Send the real POST request to Django
-    const response = await telemetryApi.setBluetoothState(targetState);
-    
-    if (response && response.status === 'success') {
-      isBtConnected.value = response.active;
-      isError.value = false;
-      syncMessage.value = response.active ? 'Bluetooth Synced!' : 'Bluetooth Disconnected';
-    } else {
-      throw new Error("Unexpected API response");
-    }
-  } catch (error) {
-    console.error("BLE Sync Error:", error);
-    isError.value = true;
-    syncMessage.value = 'Cannot sync Bluetooth.';
-  } finally {
-    isBtConnecting.value = false;
-    setTimeout(() => { syncMessage.value = ''; }, 5000);
-  }
-};
-
 const handleSync = async () => {
   if (isConnecting.value) return;
   
@@ -123,6 +104,40 @@ if (!didTimeout) {
     setTimeout(() => { syncMessage.value = ''; }, 5000);
   }
 };
+
+  // --- MOTOR COOLING STATE ---
+const isMotorOn = ref(false); 
+const isMotorToggling = ref(false);
+
+const handleMotorToggle = async () => {
+  if (isMotorToggling.value || !isConnected.value) return;
+  
+  syncMessage.value = '';
+  isError.value = false;
+  isMotorToggling.value = true;
+  
+  const targetCmd = isMotorOn.value ? 'motoroff' : 'motoron';
+
+  try {
+    const response = await missionApi.sendCommand(targetCmd);
+    
+    if (response && response.ok) {
+      isMotorOn.value = !isMotorOn.value; // Flip the UI state
+      isError.value = false;
+      syncMessage.value = isMotorOn.value ? 'Cooling Motors: ON' : 'Cooling Motors: OFF';
+    } else {
+      throw new Error(response.text || "Drone rejected command");
+    }
+  } catch (error) {
+    console.error("Motor Toggle Error:", error);
+    isError.value = true;
+    syncMessage.value = 'Failed to toggle motors.';
+  } finally {
+    isMotorToggling.value = false;
+    setTimeout(() => { syncMessage.value = ''; }, 4000);
+  }
+};
+
 </script>
 
 <template>
@@ -142,15 +157,44 @@ if (!didTimeout) {
       </ActivePageBanner>
     </div>
 
-    <div class="flex items-center space-x-4">
-      
-      <span 
-        v-if="syncMessage" 
-        class="text-xs font-bold transition-opacity" 
-        :class="isError ? 'text-red-500' : 'text-emerald-500'"
-      >
-        {{ syncMessage }}
-      </span>
+   <div class="flex items-center space-x-3">
+  
+  <div v-if="isConnected" class="flex items-center space-x-3 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100 h-9 flex-shrink-0">
+    
+    <div class="flex flex-col items-center justify-center min-w-[32px]" title="Drone 5GHz Signal (SNR)">
+      <div class="flex items-center gap-1.5">
+        <div class="w-3.5 h-3.5 flex items-center justify-center">
+          <IconWifi class="w-full h-full" :class="getSignalColor('snr', telemetryState.drone_snr)" />
+        </div>
+        <span class="text-[10px] font-black leading-none" :class="getSignalColor('snr', telemetryState.drone_snr)">
+          {{ telemetryState.drone_snr }}
+        </span>
+      </div>
+      <span class="text-[7px] uppercase text-gray-400 font-bold leading-none mt-0.5">Drone</span>
+    </div>
+
+    <div class="w-px h-4 bg-gray-200"></div>
+
+    <div class="flex flex-col items-center justify-center min-w-[32px]" title="GPS 2.4GHz Signal (RSSI)">
+      <div class="flex items-center gap-1.5">
+        <div class="w-3.5 h-3.5 flex items-center justify-center">
+          <IconMap class="w-full h-full" :class="getSignalColor('rssi', telemetryState.esp32_rssi)" />
+        </div>
+        <span class="text-[10px] font-black leading-none" :class="getSignalColor('rssi', telemetryState.esp32_rssi)">
+          {{ telemetryState.esp32_rssi }}
+        </span>
+      </div>
+      <span class="text-[7px] uppercase text-gray-400 font-bold leading-none mt-0.5">GPS</span>
+    </div>
+  </div>
+
+  <span 
+    v-if="syncMessage" 
+    class="text-[10px] font-bold whitespace-nowrap" 
+    :class="isError ? 'text-red-500' : 'text-emerald-500'"
+  >
+    {{ syncMessage }}
+  </span>
 
       <button 
         @click="handleSync"
@@ -170,23 +214,23 @@ if (!didTimeout) {
       </button>
 
       <button 
-        @click="handleBtSync"
-        :disabled="isBtConnecting"
-        title="Sync Bluetooth"
-        class="flex items-center justify-center w-9 h-9 bg-slate-800 text-white rounded-full border border-slate-700 hover:bg-slate-700 transition-all shadow-sm disabled:opacity-50"
+        @click="handleMotorToggle"
+        :disabled="isMotorToggling || !isConnected"
+        title="Toggle Cooling Motors"
+        class="flex items-center justify-center w-9 h-9 bg-slate-800 text-white rounded-full border border-slate-700 hover:bg-slate-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <svg 
-          class="w-4 h-4 transition-colors" 
+          class="w-4 h-4 transition-all duration-300" 
           :class="{
-            'animate-pulse text-[#38BDF8]': isBtConnecting, 
-            'text-[#38BDF8]': isBtConnected && !isBtConnecting,
-            'text-white': !isBtConnected && !isBtConnecting
+            'animate-spin text-amber-400': isMotorOn && !isMotorToggling, 
+            'opacity-50 text-white': !isMotorOn && !isMotorToggling,
+            'animate-pulse text-amber-200': isMotorToggling
           }" 
           fill="none" 
           stroke="currentColor" 
           viewBox="0 0 24 24"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6.75 7.5l10.5 9-6 5.25V2.25l6 5.25-10.5 9"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c.88 0 1.63-.56 1.9-1.34a4 4 0 1 0-3.24 3.24A2 2 0 1 1 12 11zm0 2c-.88 0-1.63.56-1.9 1.34a4 4 0 1 0 3.24-3.24A2 2 0 1 1 12 13z"></path>
         </svg>
       </button>
 

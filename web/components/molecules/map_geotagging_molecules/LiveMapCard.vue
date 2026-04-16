@@ -21,7 +21,7 @@ defineProps({
 const currentZoom = ref(19);
 
 const zoomIn = () => {
-  if (currentZoom.value < 22) currentZoom.value += 1;
+  if (currentZoom.value < 100) currentZoom.value += 1;
 };
 
 const zoomOut = () => {
@@ -45,10 +45,20 @@ const recenterMap = () => {
     </div>
 
     <div class="flex items-center justify-between mb-3 bg-slate-50 p-2.5 px-4 rounded-lg border border-slate-100 shrink-0 shadow-sm">
-      <span class="font-mono text-sm font-black text-slate-800">
-        Drone Position: {{ gpsData.lat?.toFixed(6) ?? '0.000000' }}, {{ gpsData.lng?.toFixed(6) ?? '0.000000' }}
-      </span>
+  <span class="font-mono text-sm font-black text-slate-800">
+    Drone Position: {{ gpsData.lat?.toFixed(6) ?? '0.000000' }}, {{ gpsData.lng?.toFixed(6) ?? '0.000000' }}
+  </span>
+  
+  <div class="flex items-center gap-2">
+    <span class="text-[9px] font-bold uppercase text-slate-400">Sats: {{ gpsData.sats }}</span>
+    <div 
+      class="px-2 py-0.5 rounded text-[10px] font-black uppercase border"
+      :class="gpsData.status === 'locked' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200 animate-pulse'"
+    >
+      {{ gpsData.status }}
     </div>
+  </div>
+</div>
 
     <div class="flex-1 min-h-[400px] relative rounded-lg overflow-hidden border border-gray-200 bg-slate-50">
       

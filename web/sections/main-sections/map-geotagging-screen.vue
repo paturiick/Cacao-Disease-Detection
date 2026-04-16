@@ -17,6 +17,8 @@ const { telemetryState, startPolling, stopPolling } = useTelemetry();
 
 // --- Local State ---
 const detectedTreesArray = ref([]);
+const currentIndex = ref(0);
+const flightPath = ref([]); 
 
 const healthyCount = computed(() => detectedTreesArray.value.filter(tree => tree.status === 'healthy').length);
 const diseasedCount = computed(() => detectedTreesArray.value.filter(tree => tree.status === 'diseased').length);
@@ -25,6 +27,16 @@ let mappingSource = null;
 
 // Ensure Vue knows where your Django server is to fetch the images
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+
+watch(() => telemetryState.gps_lat, (newLat) => {
+  const newLng = telemetryState.gps_lon;
+  
+  // Only add points if we have a valid GPS lock (not 0.0)
+  if (newLat && newLng && newLat !== 0 && newLng !== 0) {
+    flightPath.value.push({ lat: newLat, lng: newLng });
+  }
+});
 
 const gpsData = computed(() => {
   // 1. Calculate the color first
@@ -41,6 +53,9 @@ const gpsData = computed(() => {
     lng: telemetryState.gps_lon,
     heading: telemetryState.heading,
     accuracy: 2.1, 
+
+    sats: telemetryState.gps_sats,
+    status: telemetryState.gps_status,
 
     alt: telemetryState.altitude_m,
     speed: telemetryState.speed,
@@ -114,17 +129,25 @@ onUnmounted(() => {
       <div class="flex flex-col xl:flex-row gap-6 h-full max-w-[1800px] mx-auto">
         
         <div class="w-full xl:w-1/5 min-w-[300px] flex flex-col h-full overflow-y-auto">
-          <DataCard :data="gpsData" />
+          <DataCard 
+            :data="gpsData" 
+            :detected-trees="detectedTreesArray"
+            v-model:selected-index="currentIndex" 
+          />
         </div>
         
         <div class="w-full xl:w-2/5 h-full">
-          <TreeDataCard :detected-trees="detectedTreesArray" />
+          <TreeDataCard 
+          :detected-trees="detectedTreesArray" 
+          v-model:selected-index="currentIndex"
+          />
         </div>
 
         <div class="w-full xl:flex-1 h-full">
           <LiveMapCard 
             :gps-data="gpsData" 
             :trees="detectedTreesArray" 
+            :flight-path="flightPath"
           />
         </div>
 
