@@ -16,16 +16,25 @@ async function jfetch(url, opts) {
 }
 
 export const telemetryApi = {
-  // SSE Stream connection - This is now the primary data source
+  /**
+   * SSE Stream connection
+   * Receives real-time updates for:
+   * - Drone Flight Data (Battery, Altitude, Orientation)
+   * - Custom GPS Data (Lat, Lng, Satellites, Status)
+   */
   connectStream: () => {
     return new EventSource(`${BASE}/api/telemetry/stream/`);
   },
 
-  // Bluetooth controls still require HTTP for state toggling
-  getBluetoothState: () => jfetch('/api/telemetry/ble-control/', { method: 'GET' }),
-  
-  setBluetoothState: (isActive) => jfetch('/api/telemetry/ble-control/', {
-    method: 'POST',
-    body: JSON.stringify({ active: isActive })
-  })
+  /**
+   * Fetch the most recent single snapshot from the database.
+   * Useful for initial page loads before the stream starts.
+   */
+  getLatest: () => jfetch('/api/telemetry/latest/', { method: 'GET' }),
+
+  /**
+   * Fetch a history of recent telemetry points.
+   * Useful for plotting charts or drawing the flight path.
+   */
+  getRecent: (limit = 300) => jfetch(`/api/telemetry/recent/?limit=${limit}`, { method: 'GET' })
 };

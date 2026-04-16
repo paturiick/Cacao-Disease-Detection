@@ -20,8 +20,17 @@ const state = reactive({
   agz: 0,
   baro: 0,
   flight_time: 0,
+  
+  // --- NATIVE GPS STATE ---
   gps_lat: 8.4803, 
   gps_lon: 124.6498,
+  gps_sats: 0,             
+  gps_status: 'searching', 
+  
+  // --- INTERFERENCE TRACKING ---
+  drone_snr: 0,       // New: 5GHz Signal-to-Noise Ratio 
+  esp32_rssi: 0,      // New: 2.4GHz Signal Strength Indicator
+  
   heading: 0, 
   speed: 0,   
 });
@@ -53,6 +62,12 @@ export function useTelemetry() {
     state.baro = data.baro ?? state.baro;
     state.flight_time = data.flight_time ?? state.flight_time;
 
+    // --- UPDATE GPS & SIGNAL DATA ---
+    state.gps_sats = data.gps_sats ?? state.gps_sats;
+    state.gps_status = data.gps_status ?? state.gps_status;
+    state.drone_snr = data.drone_snr ?? state.drone_snr;
+    state.esp32_rssi = data.esp32_rssi ?? state.esp32_rssi;
+
     if (data.gps_lat && data.gps_lat !== 0) {
       state.gps_lat = data.gps_lat;
     }
@@ -68,7 +83,7 @@ export function useTelemetry() {
     activeSubscribers++;
     
     if (activeSubscribers === 1 && !eventSource) {
-      console.log("Opening Pure Telemetry SSE Stream (No Polling)...");
+      console.log("Opening Native Signal & Telemetry SSE Stream...");
       
       eventSource = telemetryApi.connectStream();
 

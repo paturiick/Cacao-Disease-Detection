@@ -26,7 +26,6 @@ def get_telemetry_receiver():
     global _telemetry_receiver
     if _telemetry_receiver is None:
         _telemetry_receiver = TelemetryReceiver()
-        _telemetry_receiver.start()
     return _telemetry_receiver
 
 def get_mission_executor():
