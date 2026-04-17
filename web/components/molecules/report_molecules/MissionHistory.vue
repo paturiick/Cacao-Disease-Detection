@@ -8,13 +8,17 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'delete', 'bulkDelete']);
 
-// State for multi-select mode
+// --- STATE: SELECTION MODE ---
 const isSelectionMode = ref(false);
 const selectedForDeletion = ref([]);
 
+// --- STATE: MODAL ---
+const isModalOpen = ref(false);
+const deleteMode = ref(''); // 'single' or 'bulk'
+const targetMissionId = ref(null);
+
 const toggleSelectionMode = () => {
   isSelectionMode.value = !isSelectionMode.value;
-  // Clear selections if we cancel out of selection mode
   if (!isSelectionMode.value) {
     selectedForDeletion.value = [];
   }
@@ -37,13 +41,35 @@ const handleItemClick = (id) => {
   }
 };
 
-const executeBulkDelete = () => {
+// --- MODAL ACTIONS ---
+const confirmSingleDelete = (id) => {
+  targetMissionId.value = id;
+  deleteMode.value = 'single';
+  isModalOpen.value = true;
+};
+
+const confirmBulkDelete = () => {
   if (selectedForDeletion.value.length === 0) return;
-  emit('bulkDelete', [...selectedForDeletion.value]);
+  deleteMode.value = 'bulk';
+  isModalOpen.value = true;
+};
+
+const cancelDelete = () => {
+  isModalOpen.value = false;
+  targetMissionId.value = null;
+  deleteMode.value = '';
+};
+
+const executeDelete = () => {
+  if (deleteMode.value === 'single') {
+    emit('delete', targetMissionId.value);
+  } else if (deleteMode.value === 'bulk') {
+    emit('bulkDelete', [...selectedForDeletion.value]);
+    isSelectionMode.value = false;
+    selectedForDeletion.value = [];
+  }
   
-  // Reset mode after emitting
-  isSelectionMode.value = false;
-  selectedForDeletion.value = [];
+  cancelDelete();
 };
 </script>
 
@@ -98,7 +124,7 @@ const executeBulkDelete = () => {
 
         <button 
           v-if="!isSelectionMode"
-          @click.stop="$emit('delete', mission.id)"
+          @click.stop="confirmSingleDelete(mission.id)"
           class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
           title="Delete Mission"
         >
@@ -111,13 +137,49 @@ const executeBulkDelete = () => {
 
     <div v-if="isSelectionMode" class="p-3 border-t border-slate-100 bg-slate-50 shrink-0">
       <button 
-        @click="executeBulkDelete"
+        @click="confirmBulkDelete"
         :disabled="selectedForDeletion.length === 0"
         class="w-full py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors flex justify-center items-center gap-2 shadow-sm"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
         Delete Selected ({{ selectedForDeletion.length }})
       </button>
+    </div>
+
+    <div v-if="isModalOpen" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden transform transition-all">
+        <div class="p-5 border-b border-slate-100 flex items-center gap-3 text-red-600 bg-red-50/50">
+          <div class="p-2 bg-red-100 rounded-full">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg text-slate-800">Confirm Deletion</h3>
+        </div>
+        
+        <div class="p-5">
+          <p class="text-sm text-slate-600 leading-relaxed">
+            <span v-if="deleteMode === 'single'">Are you sure you want to delete this mission record?</span>
+            <span v-else>Are you sure you want to delete the <strong>{{ selectedForDeletion.length }}</strong> selected mission records?</span>
+            <br/>This action cannot be undone.
+          </p>
+        </div>
+        
+        <div class="p-4 bg-slate-50 flex justify-end gap-3 border-t border-slate-100">
+          <button 
+            @click="cancelDelete" 
+            class="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-200 hover:text-slate-800 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="executeDelete" 
+            class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors flex items-center gap-2"
+          >
+            Yes, Delete
+          </button>
+        </div>
+      </div>
     </div>
 
   </div>

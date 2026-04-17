@@ -11,6 +11,9 @@ const isRecordingLoading = ref(false);
 
 const streamTimestamp = ref(Date.now());
 
+// Define emit so the parent component can handle the actual emergency landing command
+const emit = defineEmits(['emergency-land']);
+
 const videoSrc = computed(() => {
   if (!isStreamActive.value || !telemetryState.connected) return '';
   return `${liveApi.getStreamUrl()}?t=${streamTimestamp.value}`;
@@ -126,6 +129,19 @@ watch(() => telemetryState.connected, (isConnected) => {
 
     <div class="bg-black relative flex items-center justify-center w-full h-full overflow-hidden">
       
+      <div v-if="isStreamActive && telemetryState.connected" class="absolute bottom-6 left-4 z-30">
+        <button 
+          @click.stop="emit('emergency-land')"
+          class="flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-[0_8px_15px_-3px_rgba(220,38,38,0.4)] border border-red-500 transition-all duration-200 active:scale-95 backdrop-blur-md"
+          title="Trigger Emergency Landing"
+        >
+          <svg class="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span class="font-black text-xs uppercase tracking-widest">Emergency Land</span>
+        </button>
+      </div>
+
       <div v-if="!isStreamActive || !telemetryState.connected" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 z-20 bg-[#0A0A0A]">
         <div class="bg-slate-900/80 p-6 rounded-2xl flex flex-col items-center border border-slate-700/50 backdrop-blur-sm shadow-2xl">
           <svg class="w-12 h-12 mb-3 opacity-50" :class="{'animate-pulse': isLoading}" fill="none" stroke="currentColor" viewBox="0 0 24 24">

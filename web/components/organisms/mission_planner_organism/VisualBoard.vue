@@ -9,15 +9,17 @@ const props = defineProps({
   mode: { type: String, default: 'plan' } 
 });
 
-// --- SCALE SETTINGS ---
-const CM_TO_PX = 12; 
+const emit = defineEmits(['emergency-land']);
+
+// --- STATIC VISUAL DISTANCE ---
+const STATIC_LINE_LENGTH = 250; 
 
 // --- STATE: POSITION & ZOOM ---
 const currentDronePos = ref({ x: 0, y: 0 });
 const currentDroneYaw = ref(0);
-const zoomMultiplier = ref(1);
-const MIN_ZOOM = 1.0; 
-const MAX_ZOOM = 2.0; 
+const zoomMultiplier = ref(1.5);
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2.5;
 
 // --- STATE: PANNING & INTERACTION ---
 const panOffset = ref({ x: 0, y: 0 });
@@ -44,10 +46,11 @@ const handleRecenter = () => {
     x: currentDronePos.value.x - centerX,
     y: currentDronePos.value.y - centerY
   };
+  zoomMultiplier.value = 1;
 };
 
 const handleWheel = (e) => {
-  const zoomStep = 0.05; 
+  const zoomStep = 0.1; 
   if (e.deltaY < 0) zoomMultiplier.value = Math.max(MIN_ZOOM, zoomMultiplier.value - zoomStep);
   else if (e.deltaY > 0) zoomMultiplier.value = Math.min(MAX_ZOOM, zoomMultiplier.value + zoomStep);
 };
@@ -69,8 +72,8 @@ const handlePointerMove = (e) => {
 
   if (!isDragging.value) return;
   
-  const dx = (currentX - startDragPos.x) * zoomMultiplier.value;
-  const dy = (currentY - startDragPos.y) * zoomMultiplier.value;
+  const dx = (currentX - startDragPos.x) * zoomMultiplier.value * 2.5; // Multiplier accounts for larger viewport
+  const dy = (currentY - startDragPos.y) * zoomMultiplier.value * 2.5;
   
   panOffset.value.x -= dx;
   panOffset.value.y -= dy;
@@ -92,24 +95,31 @@ const visualData = computed(() => {
   props.queue.forEach((cmd, idx) => {
     let startX = x, startY = y;
     let val = Number(cmd.val) || 0;
-    let pixelVal = val * CM_TO_PX; 
     let isMovement = false, unit = '', labelPrefix = cmd.type.toUpperCase();
     const rad = currentYaw * (Math.PI / 180);
 
     if (['forward', 'back', 'left', 'right'].includes(cmd.type)) {
       isMovement = true; unit = 'cm';
-      if (cmd.type === 'forward') { x += pixelVal * Math.sin(rad); y -= pixelVal * Math.cos(rad); }
-      else if (cmd.type === 'back') { x -= pixelVal * Math.sin(rad); y += pixelVal * Math.cos(rad); }
-      else if (cmd.type === 'right') { x += pixelVal * Math.cos(rad); y += pixelVal * Math.sin(rad); }
-      else if (cmd.type === 'left') { x -= pixelVal * Math.cos(rad); y -= pixelVal * Math.sin(rad); }
+      if (cmd.type === 'forward') { x += STATIC_LINE_LENGTH * Math.sin(rad); y -= STATIC_LINE_LENGTH * Math.cos(rad); }
+      else if (cmd.type === 'back') { x -= STATIC_LINE_LENGTH * Math.sin(rad); y += STATIC_LINE_LENGTH * Math.cos(rad); }
+      else if (cmd.type === 'right') { x += STATIC_LINE_LENGTH * Math.cos(rad); y += STATIC_LINE_LENGTH * Math.sin(rad); }
+      else if (cmd.type === 'left') { x -= STATIC_LINE_LENGTH * Math.cos(rad); y -= STATIC_LINE_LENGTH * Math.sin(rad); }
     } 
     else if (cmd.type === 'go') {
       isMovement = true;
       const parts = String(cmd.val).split(' ');
-      let localX = (parseInt(parts[0]) || 0) * CM_TO_PX;
-      let localY = (parseInt(parts[1]) || 0) * CM_TO_PX;
-      x += (localX * Math.cos(rad)) + (localY * Math.sin(rad));
-      y += (localX * Math.sin(rad)) - (localY * Math.cos(rad)); 
+      let localX = parseInt(parts[0]) || 0;
+      let localY = parseInt(parts[1]) || 0;
+      
+      let dist = Math.sqrt(localX*localX + localY*localY);
+      let moveX = 0, moveY = 0;
+      if (dist > 0) {
+        moveX = (localX / dist) * STATIC_LINE_LENGTH;
+        moveY = (localY / dist) * STATIC_LINE_LENGTH;
+      }
+      
+      x += (moveX * Math.cos(rad)) + (moveY * Math.sin(rad));
+      y += (moveX * Math.sin(rad)) - (moveY * Math.cos(rad)); 
       labelPrefix = 'GO'; val = cmd.val;
     } 
     else if (cmd.type === 'rc') {
@@ -143,14 +153,12 @@ const visualData = computed(() => {
       if (normAngle > 180) normAngle -= 360;
       if (normAngle <= -180) normAngle += 360;
       
-      // INCREASED OFFSET so bigger labels don't overlap the thicker lines
-      if (normAngle > 90 || normAngle < -90) { textRotation += 180; textDy = 32; } 
-      else { textDy = -32; }
+      if (normAngle > 90 || normAngle < -90) { textRotation += 180; textDy = 28; } 
+      else { textDy = -28; }
     } else {
       const key = `${Math.round(x)},${Math.round(y)}`;
       if (!nodeStackMap[key]) nodeStackMap[key] = 0;
-      // INCREASED OFFSET for stacked hover/rotate commands
-      textDy = 45 + (nodeStackMap[key] * 45); 
+      textDy = 45 + (nodeStackMap[key] * 40); 
       nodeStackMap[key]++;
     }
 
@@ -158,7 +166,8 @@ const visualData = computed(() => {
       id: cmd.id || idx, 
       stepNum: idx + 1, 
       type: cmd.type, 
-      label: labelText,
+      label: labelText,        // Shown entirely on hover
+      shortLabel: labelPrefix, // Shown cleanly on the map line
       startX, startY, endX: x, endY: y, endYaw: currentYaw,
       midX: isMovement ? (startX + x) / 2 : x, midY: isMovement ? (startY + y) / 2 : y,
       isMovement, isActive: props.activeIndex === idx + 1, textRotation, textDy
@@ -184,22 +193,25 @@ watch(() => props.activeIndex, (newIdx) => {
   }
 }, { immediate: true });
 
+
+// --- STATIC VIEWPORT SCALING ---
+// Vastly expanded base viewport (2400x2400) creates the exact visual distance shown in the screenshot
 const svgViewBox = computed(() => {
   const { minX, maxX, minY, maxY } = visualData.value;
-  const pad = 300; 
-  const baseW = Math.max(800, maxX - minX);
-  const baseH = Math.max(800, maxY - minY);
   
+  // Larger dimensions = naturally smaller drone appearance at scale 1.0
+  const baseW = 2400;
+  const baseH = 2400;
+  
+  // Auto-center camera smoothly
   const cx = ((maxX + minX) / 2) + panOffset.value.x;
   const cy = ((maxY + minY) / 2) + panOffset.value.y;
   
-  const finalW = (baseW + pad * 2) * zoomMultiplier.value;
-  const finalH = (baseH + pad * 2) * zoomMultiplier.value;
+  const finalW = baseW * zoomMultiplier.value;
+  const finalH = baseH * zoomMultiplier.value;
+  
   return `${cx - finalW/2} ${cy - finalH/2} ${finalW} ${finalH}`;
 });
-
-// Adjusted base scale so big labels don't get too massive when zooming out
-const labelScale = computed(() => Math.max(1.0, zoomMultiplier.value * 1.2));
 
 const getOpacity = (segId) => {
   if (hoveredSegId.value === null) return 1;
@@ -244,6 +256,19 @@ const getOpacity = (segId) => {
       <span class="text-[10px] font-black text-slate-500 mt-1 uppercase tracking-widest">N</span>
     </div>
 
+    <div v-if="props.isRunning && props.mode !== 'report'" class="absolute bottom-6 left-4 z-10">
+      <button 
+        @click.stop="emit('emergency-land')"
+        class="flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-[0_8px_15px_-3px_rgba(220,38,38,0.4)] border border-red-500 transition-all duration-200 active:scale-95 backdrop-blur-md"
+        title="Trigger Emergency Landing"
+      >
+        <svg class="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span class="font-black text-xs uppercase tracking-widest">Emergency Land</span>
+      </button>
+    </div>
+
     <div v-if="props.mode !== 'report'" class="absolute bottom-6 right-4 z-10 flex flex-col bg-white/90 backdrop-blur-md rounded-xl border border-slate-200 shadow-lg overflow-hidden">
       <button @click="handleRecenter" title="Recenter on Drone" class="p-2.5 text-slate-500 hover:bg-slate-50 hover:text-[#658D1B] border-b border-slate-100 transition-colors">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -265,27 +290,21 @@ const getOpacity = (segId) => {
       :class="isDragging ? 'cursor-grabbing' : 'cursor-grab'"
     >
       <defs>
-        <pattern id="dotGrid" width="100" height="100" patternUnits="userSpaceOnUse">
-          <circle cx="2" cy="2" r="2" fill="#CBD5E1" opacity="0.8" />
+        <pattern id="dotGrid" width="120" height="120" patternUnits="userSpaceOnUse">
+          <circle cx="3" cy="3" r="3" fill="#CBD5E1" opacity="0.6" />
         </pattern>
         <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#0F172A" flood-opacity="0.12" />
+          <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.12" />
         </filter>
         <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#658D1B" flood-opacity="0.4" />
+          <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#658D1B" flood-opacity="0.4" />
         </filter>
       </defs>
 
-      <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#dotGrid)" />
+      <rect x="-500000" y="-500000" width="1000000" height="1000000" fill="url(#dotGrid)" />
       
-      <line x1="-50000" y1="0" x2="50000" y2="0" stroke="#E2E8F0" stroke-width="2" opacity="0.8" />
-      <line x1="0" y1="-50000" x2="0" y2="50000" stroke="#E2E8F0" stroke-width="2" opacity="0.8" />
-
-      <g filter="url(#soft-shadow)">
-        <circle cx="0" cy="0" r="30" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="3" stroke-dasharray="6 6" />
-        <circle cx="0" cy="0" r="6" fill="#94A3B8" />
-        <text x="0" y="-40" font-size="12" font-weight="800" fill="#94A3B8" text-anchor="middle" letter-spacing="1">HOME</text>
-      </g>
+      <line x1="-500000" y1="0" x2="500000" y2="0" stroke="#E2E8F0" stroke-width="3" opacity="0.8" />
+      <line x1="0" y1="-500000" x2="0" y2="500000" stroke="#E2E8F0" stroke-width="3" opacity="0.8" />
 
       <g 
         v-for="seg in visualData.segments" 
@@ -300,68 +319,62 @@ const getOpacity = (segId) => {
           :x1="seg.startX" :y1="seg.startY" 
           :x2="seg.endX" :y2="seg.endY" 
           :stroke="seg.isActive ? '#658D1B' : '#94A3B8'" 
-          :stroke-width="hoveredSegId === seg.id || seg.isActive ? 20 : 12"
+          :stroke-width="hoveredSegId === seg.id || seg.isActive ? 24 : 16"
           stroke-linecap="round"
-          :stroke-dasharray="seg.isActive ? 'none' : '10, 30'"
+          :stroke-dasharray="seg.isActive ? 'none' : '15, 30'"
           :filter="seg.isActive ? 'url(#glow)' : ''"
         />
         
         <circle 
           v-if="seg.isMovement"
           :cx="seg.endX" :cy="seg.endY" 
-          :r="hoveredSegId === seg.id || seg.isActive ? 12 : 9" 
+          :r="hoveredSegId === seg.id || seg.isActive ? 20 : 16" 
           fill="#FFFFFF" 
           :stroke="seg.isActive ? '#658D1B' : '#94A3B8'" 
-          stroke-width="4"
+          stroke-width="5"
           filter="url(#soft-shadow)"
         />
         <circle 
           v-if="seg.isMovement && seg.isActive"
           :cx="seg.endX" :cy="seg.endY" 
-          r="5" 
+          r="8" 
           fill="#658D1B" 
         />
 
         <circle 
           v-if="!seg.isMovement"
           :cx="seg.endX" :cy="seg.endY" 
-          :r="seg.isActive || hoveredSegId === seg.id ? 16 : 12" 
+          :r="seg.isActive || hoveredSegId === seg.id ? 28 : 24" 
           :fill="seg.isActive ? '#F59E0B' : '#FFFFFF'" 
           :stroke="seg.isActive ? '#FFFFFF' : '#F59E0B'"
-          stroke-width="3"
+          stroke-width="4"
           filter="url(#soft-shadow)"
         />
 
-        <g :transform="`translate(${seg.midX}, ${seg.midY}) scale(${labelScale}) rotate(${seg.textRotation || 0})`">
+        <g :transform="`translate(${seg.midX}, ${seg.midY}) rotate(${seg.textRotation || 0})`">
           <rect 
-            :x="-(seg.label.length * 10) - 40" 
-            :y="seg.textDy - 30" 
-            :width="(seg.label.length * 20) + 80" 
-            height="50" 
-            rx="30" 
+            x="-40" :y="seg.textDy - 18" 
+            width="80" height="36" 
+            rx="18" 
             :fill="seg.isActive ? '#658D1B' : '#FFFFFF'" 
             :fill-opacity="seg.isActive ? 1 : 0.95"
             :stroke="seg.isActive ? 'none' : '#E2E8F0'" 
-            stroke-width="1.5"
+            stroke-width="2"
             filter="url(#soft-shadow)"
           />
           <text 
-            x="0" :y="seg.textDy + 10"
-            font-size="30" font-weight="900"
-            :fill="seg.isActive ? '#FFFFFF' : '#475569'" 
+            x="0" :y="seg.textDy + 6"
+            font-size="16" font-weight="900"
+            :fill="seg.isActive ? '#FFFFFF' : '#64748B'" 
             text-anchor="middle" font-family="Inter, sans-serif" letter-spacing="0.5"
           >
-            {{ seg.label }}
+            {{ seg.shortLabel }}
           </text>
         </g>
       </g>
 
-      <g :transform="`translate(${currentDronePos.x}, ${currentDronePos.y}) rotate(${currentDroneYaw})`" filter="url(#soft-shadow)">
-        <DroneModel 
-          :isRunning="props.isRunning" 
-          :scale="7"
-          transform="scale(7)"
-        />
+      <g :transform="`translate(${currentDronePos.x}, ${currentDronePos.y}) rotate(${currentDroneYaw}) scale(8)`" filter="url(#soft-shadow)">
+        <DroneModel :isRunning="props.isRunning" />
       </g>
     </svg>
   </div>
