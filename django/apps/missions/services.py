@@ -71,12 +71,7 @@ def start_hardware_mission(steps_data: list, speed: int = 30) -> dict:
                     int(parts[3]) if len(parts) == 4 else speed
                 )
 
-    # FIXED: Check if this is a standard drawn mission or just a live RC override
-    is_live_override = any(cmd in [s.get("command", "") for s in steps_data] for cmd in ["takeoff", "land", "rc"])
-    
-    if not is_live_override:
-        # It's a standard drawn mission queue. Add the safe takeoff and landing brackets!
-        builder.wrap_standard_flight()
+    builder.wrap_standard_flight()
 
     success, text = executor.run_async(builder.steps, speed)
     return {"ok": success, "text": text}
