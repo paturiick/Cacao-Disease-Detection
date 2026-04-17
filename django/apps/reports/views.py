@@ -2,6 +2,8 @@
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.db.models import Max, Min
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 
 from apps.missions.models import FlightPlan 
 from apps.telemetry.models import MissionTelemetryLog
@@ -91,3 +93,19 @@ def get_mission_report(request, mission_id):
     }
 
     return JsonResponse(payload)
+
+@csrf_exempt
+@require_http_methods(["DELETE", "POST"])
+def delete_mission(request, mission_id):
+    """
+    Deletes a specific mission (FlightPlan) and returns a confirmation payload.
+    """
+    mission = get_object_or_404(FlightPlan, id=mission_id)
+    
+    mission.delete()
+    
+    return JsonResponse({
+        "status": "success",
+        "message": f"Mission {mission_id} has been deleted.",
+        "id": mission_id
+    }, status=200)

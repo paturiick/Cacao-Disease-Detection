@@ -34,6 +34,7 @@ const mapReadyTrees = computed(() => {
       id: tree.tree_id,
       lat: parseFloat(tree.lat) + jitter,
       lng: parseFloat(tree.lon) + jitter,
+      status: getStatus(tree),
       image: tree.image || 'https://images.unsplash.com/photo-1597848212624-a19eb35e2656?w=400&q=60'
     };
   });
@@ -49,6 +50,10 @@ const mapCenter = computed(() => {
   }
   return { lat: 8.49918, lng: 124.31046 }; 
 });
+
+const getStatus = (tree) => {
+  return tree.status || (tree.accuracy < 90 ? 'unhealthy' : 'healthy');
+};
 
 const initMap = async () => {
   if (!L) L = (await import('leaflet')).default;
@@ -66,13 +71,19 @@ const initMap = async () => {
   treeMarkers = {};
 
   mapReadyTrees.value.forEach(tree => {
-    // MINIMIZED PIN SIZE
+
+    const isUnhealthy = tree.status === 'unhealthy' || tree.status === 'diseased';
+    const pinBg = isUnhealthy ? 'bg-red-500' : 'bg-[#658D1B]';
+    const caretColor = isUnhealthy ? 'border-t-red-500' : 'border-t-[#658D1B]';
+    const badgeClass = isUnhealthy ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200';
+    const statusLabel = isUnhealthy ? 'Infected Pod' : 'Healthy Pod';
+
     const iconHtml = `
       <div class="relative flex flex-col items-center group cursor-pointer transition-transform hover:scale-110">
-        <div class="w-5 h-5 bg-[#658D1B] rounded-full shadow-md flex items-center justify-center border border-white z-10">
+        <div class="w-5 h-5 ${pinBg} rounded-full shadow-md flex items-center justify-center border border-white z-10">
           <span class="text-white font-black text-[9px]">${tree.id}</span>
         </div>
-        <div class="w-0 h-0 border-l-[4px] border-r-[4px] border-t-[5px] border-transparent border-t-[#658D1B] -mt-0.5 z-0 filter drop-shadow-sm"></div>
+        <div class="w-0 h-0 border-l-[4px] border-r-[4px] border-t-[5px] border-transparent ${caretColor} -mt-0.5 z-0 filter drop-shadow-sm"></div>
       </div>
     `;
 
@@ -83,8 +94,7 @@ const initMap = async () => {
       popupAnchor: [0, -22], 
       html: iconHtml
     });
-
-    const popupContent = `
+const popupContent = `
       <div class="w-48 flex flex-col font-sans">
         <div class="w-full h-32 rounded-t-lg overflow-hidden bg-slate-100 border-b border-slate-200">
           <img src="${tree.image}" alt="Tree Capture" class="w-full h-full object-cover" />
@@ -94,13 +104,16 @@ const initMap = async () => {
             <span class="text-xs font-black text-slate-400 uppercase tracking-widest">Pod ID</span>
             <span class="text-sm font-black text-[#658D1B]">${tree.id}</span>
           </div>
-          <div class="space-y-1 mt-2">
+          <div class="flex items-center justify-between mt-1 mb-2">
+            <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded border ${badgeClass}">${statusLabel}</span>
+          </div>
+          <div class="space-y-1">
             <p class="text-[10px] font-mono text-slate-500">Lat: ${tree.lat.toFixed(6)}</p>
             <p class="text-[10px] font-mono text-slate-500">Lng: ${tree.lng.toFixed(6)}</p>
           </div>
         </div>
       </div>
-    `;
+    `;  
 
     const marker = L.marker([tree.lat, tree.lng], { icon })
       .bindPopup(popupContent, { closeButton: false, className: 'custom-tree-popup', minWidth: 192 })
@@ -216,14 +229,27 @@ onUnmounted(() => {
         <div v-show="activeRightTab === 'database'" class="flex-1 flex flex-col overflow-hidden">
           <div class="grid grid-cols-5 bg-slate-50 border-b border-slate-200 p-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0 print:bg-white print:border-black">
             <div class="col-span-1 text-center">Pod ID</div>
+            <div class="col-span-1 text-center">Status</div>
             <div class="col-span-1">Latitude</div>
             <div class="col-span-1">Longitude</div>
             <div class="col-span-1 text-center print:hidden">Action</div>
           </div>
+          
           <div class="overflow-y-auto flex-1 p-1 print:overflow-visible custom-scrollbar">
             <div v-if="trees.length === 0" class="text-center p-6 text-slate-400 text-xs font-bold uppercase tracking-wider">No pods mapped</div>
+            
             <div v-for="tree in trees" :key="tree.tree_id" class="grid grid-cols-5 items-center p-2.5 border-b border-slate-50 last:border-0 hover:bg-slate-50 text-sm print:border-slate-200 print:py-1">
               <div class="col-span-1 text-center font-bold text-slate-400 print:text-black">{{ tree.tree_id }}</div>
+              
+              <div class="col-span-1 flex justify-center">
+                <span v-if="getStatus(tree) === 'healthy'" class="text-[9px] font-black uppercase px-2 py-0.5 rounded border bg-emerald-50 text-emerald-600 border-emerald-200">
+                  Healthy
+                </span>
+                <span v-else class="text-[9px] font-black uppercase px-2 py-0.5 rounded border bg-red-50 text-red-600 border-red-200">
+                  Infected
+                </span>
+              </div>
+
               <div class="col-span-1 font-mono text-[#0F172A]">{{ tree.lat }}</div>
               <div class="col-span-1 font-mono text-[#0F172A]">{{ tree.lon }}</div>
               <div class="col-span-1 flex justify-center print:hidden">

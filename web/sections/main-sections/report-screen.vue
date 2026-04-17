@@ -43,6 +43,26 @@ const fetchMissionList = async () => {
   }
 };
 
+const handleDeleteMission = async (id) => {
+  const isConfirmed = confirm(`Are you sure you want to permanently delete Mission #${id}?`);
+  if (!isConfirmed) return;
+
+  try {
+    if (reportApi.deleteMission) {
+      await reportApi.deleteMission(id);
+    }
+    
+    missions.value = missions.value.filter(m => m.id !== id);
+    
+    if (selectedMissionId.value === id) {
+      selectedMissionId.value = missions.value.length > 0 ? missions.value[0].id : null;
+    }
+  } catch (error) {
+    console.error(`Failed to delete mission ${id}:`, error);
+    alert("Failed to delete the mission. Please check your connection.");
+  }
+};
+
 watch(selectedMissionId, async (newId) => {
   if (!newId) return;
   
@@ -69,6 +89,32 @@ const avgAccuracy = computed(() => {
   return (sum / currentTrees.length).toFixed(2);
 });
 
+const handleBulkDeleteMissions = async (idsToDelete) => {
+  const isConfirmed = confirm(`Are you sure you want to permanently delete ${idsToDelete.length} missions?`);
+  if (!isConfirmed) return;
+
+  try {
+    // Loop through and delete each ID. 
+    // (If you want to optimize this later, you can create a bulk delete endpoint in Django!)
+    for (const id of idsToDelete) {
+      if (reportApi.deleteMission) {
+        await reportApi.deleteMission(id);
+      }
+    }
+    
+    // Remove the deleted IDs from the frontend list
+    missions.value = missions.value.filter(m => !idsToDelete.includes(m.id));
+    
+    // If the currently selected mission was deleted, select the first available one
+    if (idsToDelete.includes(selectedMissionId.value)) {
+      selectedMissionId.value = missions.value.length > 0 ? missions.value[0].id : null;
+    }
+  } catch (error) {
+    console.error("Failed during bulk deletion:", error);
+    alert("Failed to delete some missions. Please refresh and try again.");
+  }
+};
+
 const handleExportPDF = () => {
   window.print(); 
 };
@@ -94,6 +140,8 @@ const handleExportPDF = () => {
         :missions="missions" 
         :selected-id="selectedMissionId" 
         @select="selectedMissionId = $event" 
+        @delete="handleDeleteMission"
+        @bulkDelete="handleBulkDeleteMissions"
       />
 
       <div class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative print:shadow-none print:border-none print:rounded-none print:overflow-visible">

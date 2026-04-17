@@ -21,5 +21,12 @@ export const reportApi = {
    * Endpoint: GET /api/reports/mission/{missionId}/
    * @param {number|string} missionId - The ID of the flight plan
    */
-  getMissionReport: (missionId) => jfetch(`/api/reports/mission/${missionId}/`, { method: 'GET' })
+  getMissionReport: (missionId) => jfetch(`/api/reports/mission/${missionId}/`, { method: 'GET' }),
+
+  /**
+   * Deletes a specific mission and its associated records.
+   * Endpoint: DELETE /api/reports/mission/{missionId}/delete/
+   * @param {number|string} missionId - The ID of the flight plan to delete
+   */
+  deleteMission: (missionId) => jfetch(`/api/reports/mission/${missionId}/delete/`, { method: 'DELETE' })
 };
