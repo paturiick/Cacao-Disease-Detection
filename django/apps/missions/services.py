@@ -9,7 +9,7 @@ def get_mission_progress() -> dict:
     executor = get_mission_executor()
     
     # Read the state directly from your singleton MissionExecutor in the background thread
-    state = executor.state
+    state = executor.safe_state
     return {
         "status": state["status"],             # 'running', 'completed', 'failed', 'cancelled'
         "active_index": state["active_index"], # e.g., 0, 1, 2...

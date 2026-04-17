@@ -120,7 +120,7 @@ class TelloClient:
             res = data.decode("utf-8", errors="ignore").strip()
 
             # --- THE FIX: IGNORE GPS NOISE ---
-            if res.startswith("loc:") or res.startswith("sch:"):
+            if res.startswith("loc:") or res.startswith("sch:") or res.startswith("0TQ"):
                 continue
 
             # 4. PARSE REAL DRONE RESPONSE

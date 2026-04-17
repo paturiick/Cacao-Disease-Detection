@@ -166,18 +166,27 @@ const startStatusPoll = () => {
     try {
       const s = await missionApi.status();
       currentStepIndex.value = s.status === 'running' ? (s.active_index ?? -1) : -1;
+      
       if (['completed', 'failed', 'cancelled', 'inactive'].includes(s.status)) {
         stopStatusPoll();
+        
+        // --- UI State Reset ---
         isRunning.value = false;
         isLanding.value = false; 
         currentStepIndex.value = -1;
+        
+        activeSessionId.value = null;
+        isStreamActive.value = false;
+        
         modalConfig.title = s.status === 'completed' ? 'Mission Complete' : 'Mission Ended';
         modalConfig.message = s.status === 'completed' ? 'The drone successfully executed the flight plan.' : (s.message || `Status: ${s.status}`);
         modalConfig.isWarning = s.status !== 'completed';
         modalConfig.isSuccess = s.status === 'completed';
         showCompleteModal.value = true;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("[MISSION] Status Polling Error:", e);
+    }
   }, 1000);
 };
 

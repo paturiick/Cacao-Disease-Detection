@@ -208,6 +208,15 @@ class MissionExecutor:
                 
                 print(f"\n[MISSION CONTROL] Sending Command: {step.cmd}", flush=True)
 
+
+                if step.cmd == "takeoff":
+                    from drone_controller.instance import get_telemetry_receiver
+                    tel = get_telemetry_receiver().get()
+                    
+                    if tel.get("flight_time", 0) > 0 or tel.get("alt_m", 0.0) > 0.3:
+                        print("[AUTOMATION] Drone already airborne. Skipping redundant takeoff.")
+                        continue 
+
                 # ====================================================
                 # NEW: AUTOMATED RC COMMANDS (Fire-and-forget loop)
                 # ====================================================
