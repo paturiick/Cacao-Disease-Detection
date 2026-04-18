@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router'; 
 import { useDrone } from '~/sections/api/statusApi.js'; 
 
@@ -22,13 +22,6 @@ onMounted(() => startPolling());
 onUnmounted(() => stopPolling());
 
 const getSignalColor = (type, value) => {
-  if (type === 'snr') {
-    // 5GHz SNR: >25 excellent, 15-25 good, <15 poor
-    if (value >= 25) return 'text-emerald-500';
-    if (value >= 15) return 'text-amber-500';
-    return 'text-red-500';
-  }
-  
   if (type === 'rssi') {
     // 2.4GHz RSSI: >-60 excellent, -60 to -80 fair, <-80 poor
     if (value >= -60) return 'text-emerald-500';
@@ -93,7 +86,7 @@ const handleSync = async () => {
   
   clearTimeout(timeoutTimer);
 
-if (!didTimeout) {
+  if (!didTimeout) {
     if (isConnected.value) {
       isError.value = false;
       syncMessage.value = 'Synced successfully!';
@@ -161,20 +154,6 @@ const handleMotorToggle = async () => {
   
   <div v-if="isConnected" class="flex items-center space-x-3 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100 h-9 flex-shrink-0">
     
-    <div class="flex flex-col items-center justify-center min-w-[32px]" title="Drone 5GHz Signal (SNR)">
-      <div class="flex items-center gap-1.5">
-        <div class="w-3.5 h-3.5 flex items-center justify-center">
-          <IconWifi class="w-full h-full" :class="getSignalColor('snr', telemetryState.drone_snr)" />
-        </div>
-        <span class="text-[10px] font-black leading-none" :class="getSignalColor('snr', telemetryState.drone_snr)">
-          {{ telemetryState.drone_snr }}
-        </span>
-      </div>
-      <span class="text-[7px] uppercase text-gray-400 font-bold leading-none mt-0.5">Drone</span>
-    </div>
-
-    <div class="w-px h-4 bg-gray-200"></div>
-
     <div class="flex flex-col items-center justify-center min-w-[32px]" title="GPS 2.4GHz Signal (RSSI)">
       <div class="flex items-center gap-1.5">
         <div class="w-3.5 h-3.5 flex items-center justify-center">

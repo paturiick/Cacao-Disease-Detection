@@ -119,7 +119,7 @@ class MissionBuilder:
         if they aren't already present.
         """
         if not self.steps or self.steps[0].cmd != "takeoff":
-            self.steps.insert(0, MissionStep("takeoff", 3.0))
+            self.steps.insert(0, MissionStep("takeoff", 1.0))
             
         if self.steps[-1].cmd != "land":
             self.steps.append(MissionStep("land", 1.0))
@@ -210,12 +210,14 @@ class MissionExecutor:
 
 
                 if step.cmd == "takeoff":
-                    from drone_controller.instance import get_telemetry_receiver
-                    tel = get_telemetry_receiver().get()
+                    print("\n[MISSION CONTROL] Sending Command: takeoff", flush=True)
+                    response = self.client.send("takeoff", timeout=15.0)
                     
-                    if tel.get("flight_time", 0) > 0 or tel.get("alt_m", 0.0) > 0.3:
-                        print("[AUTOMATION] Drone already airborne. Skipping redundant takeoff.")
-                        continue 
+                    if not response or not getattr(response, 'ok', False):
+                         raise Exception("Drone rejected takeoff.")
+                    
+                    time.sleep(step.delay_s)
+                    continue
 
                 # ====================================================
                 # NEW: AUTOMATED RC COMMANDS (Fire-and-forget loop)

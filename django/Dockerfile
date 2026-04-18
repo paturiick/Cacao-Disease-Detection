@@ -18,10 +18,12 @@ WORKDIR /app
 
 RUN pip install --upgrade pip
 
-RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+RUN pip install --no-cache-dir ultralytics==8.3.40
 
 # 4. Copy the rest of the Django project
 COPY . .

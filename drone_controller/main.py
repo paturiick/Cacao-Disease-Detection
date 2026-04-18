@@ -56,7 +56,7 @@ class DroneBrain:
 
     def get_video_stream(self) -> bytes:
         """Exposes the latest video packet for backend consumption."""
-        return self.video.get_latest_packet()
+        return self.video.get_latest_frame()
 
 # Example usage for testing locally:
 if __name__ == "__main__":
