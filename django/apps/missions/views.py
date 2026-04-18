@@ -105,6 +105,16 @@ def run_mission_view(request):
     
     active_plan = FlightPlan.objects.filter(is_active=True).first()
 
+    if not steps and active_plan:
+        for step in active_plan.steps.all():
+            steps.append({
+                "type": step.step_type,
+                "val": step.step_val
+            })
+
+    if not steps:
+        return JsonResponse({"ok": False, "text": "No flight steps provided or found."})
+
     historical_plan = FlightPlan.objects.create(
         name=f"Flight Log: {timezone.now().strftime('%b %d, %H:%M')}",
         altitude=active_plan.altitude if active_plan else 2,
@@ -114,14 +124,13 @@ def run_mission_view(request):
     )
 
     
-    if active_plan:
-        for step in active_plan.steps.all():
-            FlightStep.objects.create(
-                plan=historical_plan,
-                order=step.order,
-                step_type=step.step_type,
-                step_val=step.step_val
-            )
+    for i, step_data in enumerate(steps):
+        FlightStep.objects.create(
+            plan=historical_plan,
+            order=i,
+            step_type=step_data.get("type", step_data.get("command", "")),
+            step_val=step_data.get("val", step_data.get("value", ""))
+        )
 
     new_session_id = str(uuid.uuid4())
     

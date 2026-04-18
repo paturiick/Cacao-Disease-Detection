@@ -25,11 +25,16 @@ def start_hardware_mission(steps_data: list, speed: int = 30) -> dict:
         return {"ok": False, "text": "Drone is disconnected. Please Sync."}
         
     builder = MissionBuilder()
+
+    has_flight_commands = False
     
     for step in steps_data:
         # FIXED: Check for both 'type' (from planner) and 'command' (from RC panel)
         cmd_type = step.get("type", step.get("command", "")).lower()
         val_str = str(step.get("val", step.get("value", "0")))
+
+        if cmd_type in ["forward", "back", "left", "right", "up", "down", "cw", "ccw", "go", "rc", "takeoff", "hover"]:
+            has_flight_commands = True
         
         try: 
             val = int(val_str)
@@ -71,7 +76,8 @@ def start_hardware_mission(steps_data: list, speed: int = 30) -> dict:
                     int(parts[3]) if len(parts) == 4 else speed
                 )
 
-    builder.wrap_standard_flight()
+    if has_flight_commands:
+        builder.wrap_standard_flight()
 
     success, text = executor.run_async(builder.steps, speed)
     return {"ok": success, "text": text}

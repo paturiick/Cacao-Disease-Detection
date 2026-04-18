@@ -30,7 +30,6 @@ def start_sampler(sample_every_s: float = 1.0):
             print("SAMPLER STARTUP FAILED")
             return
 
-        last_snr_check = 0
 
         while True:
             try:
@@ -39,35 +38,7 @@ def start_sampler(sample_every_s: float = 1.0):
                 
                 client = get_drone_client()
                 is_connected = client.status().get("connected", False)
-                
-                # Define current_time here so it is accessible throughout the loop iteration
-                current_time = time.time()
-
-                # --- 1. Drone-Specific Logic (Only if Synced) ---
-                if is_connected:
-                    # Periodic SNR check (every 3 seconds)
-                    if current_time - last_snr_check > 3.0:
-                        try:
-                            reply = client.send("wifi?", timeout=0.5)
-                            print(f"[DEBUG SNR] Drone replied to wifi?: '{reply.text}'", flush=True)
-                            # Stop checking if reply.ok is True, just parse the text
-                            if reply.text:
-                                try:
-                                    # Strip whitespace and handle potential negative numbers/formatted strings
-                                    snr_value = int(float(reply.text.strip())) 
-                                    with telemetry._lock:
-                                        # Absolute value used for consistent UI representation
-                                        telemetry._state["drone_snr"] = abs(snr_value) 
-                                except (ValueError, TypeError):
-                                    pass
-                        except Exception:
-                            # Catch DroneTimeout so it doesn't abort the snapshot save!
-                            pass
-                        
-                        last_snr_check = current_time
-
-                # --- 2. Always Create Snapshot ---
-                # This ensures ESP32 RSSI and GPS data are visible even if the drone is off
+                                
                 t = telemetry.get()
                 
                 TelemetrySnapshot.objects.create(
