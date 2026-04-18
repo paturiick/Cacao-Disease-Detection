@@ -19,7 +19,8 @@ const props = defineProps({
   mode: { type: String, default: 'plan' } 
 });
 
-const emit = defineEmits(['remove', 'clear', 'reorder', 'edit', 'update:mode', 'send-rc', 'save-to-plan']);
+// Added 'duplicate' to the emitted events
+const emit = defineEmits(['remove', 'clear', 'reorder', 'edit', 'update:mode', 'send-rc', 'save-to-plan', 'duplicate']);
 
 const showModal = ref(false);
 const modalConfig = ref({ title: '', message: '', isWarning: false, confirmText: 'Confirm', cancelText: 'Cancel' });
@@ -174,9 +175,19 @@ const getFormattedUnit = (item) => {
 
           <div v-else class="space-y-3 pb-8">
             <div v-for="(item, idx) in props.queue" :key="item.id" :draggable="!props.isRunning" @dragstart="handleDragStart(idx, $event)" @dragover="handleDragOver(idx, $event)" @dragenter.prevent @drop="handleDrop(idx, $event)" @dragend="handleDragEnd" class="transition-all duration-200 ease-in-out relative group" :class="{'cursor-grab active:cursor-grabbing': !props.isRunning, 'opacity-40 scale-[0.98]': draggedIndex === idx}">
-              <button v-if="!props.isRunning" @click.stop="openEditModal(idx)" class="absolute -left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 z-10 bg-white border border-gray-200 text-[#658D1B] p-1.5 rounded-full shadow-md hover:bg-gray-50 transition-opacity">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-              </button>
+              
+              <div v-if="!props.isRunning" class="absolute right-12 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 z-20 flex gap-0.5 bg-white p-1 rounded-lg shadow-md border border-gray-200 transition-opacity">
+                <button @click.stop="openEditModal(idx)" class="text-[#658D1B] p-1.5 rounded hover:bg-gray-50 transition-colors" title="Edit Step">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                </button>
+                <div class="w-px bg-gray-200 my-1"></div>
+                <button @click.stop="$emit('duplicate', idx)" class="text-blue-500 p-1.5 rounded hover:bg-blue-50 transition-colors" title="Duplicate Step">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2.5"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </svg>
+                </button>
+              </div>
               
               <MissionListItem 
                 :index="idx" 
