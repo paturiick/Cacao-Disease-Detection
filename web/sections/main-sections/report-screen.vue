@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 
 // 1. IMPORT TELEMETRY COMPOSABLE (This was missing)
@@ -13,7 +13,7 @@ import MissionSummaryCard from '~/components/molecules/report_molecules/MissionS
 
 // --- MAKE SURE THESE 3 LINES EXIST ---
 const missions = ref([]); 
-const selectedMissionId = ref(null); // <-- This is what H3 is complaining about!
+const selectedMissionId = ref(null); 
 const activeMissionData = ref(null); 
 // -------------------------------------
 
@@ -43,10 +43,7 @@ const fetchMissionList = async () => {
   }
 };
 
-const handleDeleteMission = async (id) => {
-  const isConfirmed = confirm(`Are you sure you want to permanently delete Mission #${id}?`);
-  if (!isConfirmed) return;
-
+const handleDeleteMission = async (id) => { 
   try {
     if (reportApi.deleteMission) {
       await reportApi.deleteMission(id);
@@ -90,8 +87,8 @@ const avgAccuracy = computed(() => {
 });
 
 const handleBulkDeleteMissions = async (idsToDelete) => {
-  const isConfirmed = confirm(`Are you sure you want to permanently delete ${idsToDelete.length} missions?`);
-  if (!isConfirmed) return;
+  // REMOVED: native browser confirm()
+  // The custom modal in MissionHistory.vue handles confirmation now.
 
   try {
     // Loop through and delete each ID. 

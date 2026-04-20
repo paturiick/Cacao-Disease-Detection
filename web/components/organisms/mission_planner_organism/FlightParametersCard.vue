@@ -15,9 +15,7 @@ defineEmits(['update:modelValue']);
     </SectionHeader>
     
     <div class="grid grid-cols-2 gap-4 mt-4">
-      <LabeledInput v-model="modelValue.altitude" label="Flight Altitude (m)" type="number" />
       <LabeledInput v-model="modelValue.speed" label="Speed (cm/s)" type="number" />
-      <LabeledInput v-model="modelValue.mode" label="Flight Mode" class="col-span-2 " readonly/>
       
     </div>
   </BaseCard>
