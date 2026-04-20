@@ -11,7 +11,7 @@ const handleGetStarted = () => {
   
   // Wait for the animation to complete before navigating
   setTimeout(() => {
-    navigateTo('/mission-planner');
+    navigateTo('/login');
   }, 600); // 600ms matches our CSS transition duration
 }
 </script>
@@ -50,12 +50,11 @@ const handleGetStarted = () => {
       </div>
       
       <h1 class="animate-fade-in-up delay-200 text-4xl md:text-5xl lg:text-6xl font-black text-primary mb-6 tracking-tight leading-[1.15]">
-        Welcome to Cacao <br class="hidden md:block"/> 
-        <span class="opacity-90">Disease Detection</span>
+        Welcome to LUPAD<br class="hidden md:block"/>
       </h1>
       
       <p class="animate-fade-in-up delay-300 text-lg md:text-xl text-gray-600 mb-12 max-w-xl mx-auto leading-relaxed">
-        Harnessing AI precision to help you efficiently identify, monitor, and manage diseases in your cacao plantation.
+        Localized UAV-based Black Pod Rot (Phytophthora Palmivora) Automated Disease Detection in Cacao Pods
       </p>
       
       <div class="animate-fade-in-up delay-400">
@@ -65,7 +64,7 @@ const handleGetStarted = () => {
         >
           <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:animate-sweep"></div>
           
-          <span class="relative z-10">Launch Dashboard</span>
+          <span class="relative z-10">Get Started</span>
           <svg class="relative z-10 w-5 h-5 transition-transform duration-300 group-hover:translate-x-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>

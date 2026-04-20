@@ -114,23 +114,18 @@ const handleEditFromHistory = () => {
   }
 };
 
-// PERFECTED: Always clear the board if it's the last preset or if active ID was lost on refresh
 const handleDeletePreset = async (presetToDelete) => {
-  // 1. Remove the preset from the array
   presets.value = presets.value.filter(p => p.id !== presetToDelete.id);
   
-  // 2. If it was active, OR there are no presets left, OR we refreshed and lost active state
   if (activePresetId.value === presetToDelete.id || presets.value.length === 0 || activePresetId.value === null) {
     activePresetId.value = null;
     
-    // Clear the active flight plan queue via API and locally
     if (planId.value) {
       try { await missionApi.clearSteps(planId.value); } catch(e) { console.error("Failed to clear API", e); }
     }
     missionQueue.value = [];
     currentStepIndex.value = -1;
     
-    // 3. Automatically swap to the next available preset if any exist
     if (presets.value.length > 0) {
       await loadPresetIntoHistory(presets.value[0]);
     }
@@ -200,20 +195,14 @@ watch(() => ({ ...flightParams }), () => {
   fpTimer = setTimeout(() => { missionApi.patchPlan(planId.value, { ...flightParams }); }, 350);
 }, { deep: true });
 
-// --- ADDED HANDLER FUNCTIONS FOR REORDER, EDIT, AND REMOVE ---
-
-// Helper function to rebuild the flight plan in the backend
 const syncQueueToApi = async () => {
   if (!planId.value) return;
   
-  // Make a copy of the current desired state
   const currentQueue = [...missionQueue.value]; 
   
-  // Clear the backend
   await missionApi.clearSteps(planId.value);
   missionQueue.value = [];
   
-  // Re-add them in the exact new order/state
   for (const cmd of currentQueue) {
     const created = await missionApi.addStep(planId.value, { 
       type: cmd.type, 
@@ -226,39 +215,30 @@ const syncQueueToApi = async () => {
 
 const handleReorder = async ({ from, to }) => {
   if (isRunning.value) return;
-  // 1. Move item locally
   const item = missionQueue.value.splice(from, 1)[0];
   missionQueue.value.splice(to, 0, item);
-  // 2. Sync to backend
   await syncQueueToApi();
 };
 
 const handleEdit = async ({ index, type, val, speed }) => {
   if (isRunning.value) return;
-  // 1. Update item locally
   missionQueue.value[index].type = type;
   missionQueue.value[index].val = val;
   missionQueue.value[index].speed = speed;
   
-  // Refresh the local decoration properties
   const updatedDecoration = decorateStep(missionQueue.value[index]);
   missionQueue.value[index].label = updatedDecoration.label;
   missionQueue.value[index].icon = updatedDecoration.icon;
   missionQueue.value[index].unit = updatedDecoration.unit;
 
-  // 2. Sync to backend
   await syncQueueToApi();
 };
 
 const handleRemove = async (index) => {
   if (isRunning.value) return;
-  // 1. Remove locally
   missionQueue.value.splice(index, 1);
-  // 2. Sync to backend
   await syncQueueToApi();
 };
-
-// -------------------------------------------------------------
 
 const handleClear = async () => {
   if (!planId.value) return;
@@ -400,6 +380,7 @@ onBeforeUnmount(() => {
             :commandOptions="commandOptions"
             :isDrawingMode="isDrawingMode"
             :mode="currentMode"
+            :allowDelete="false"
             @update:mode="currentMode = $event"
             @mode-change="isDrawingMode = $event"
             @clear="handleClear"
