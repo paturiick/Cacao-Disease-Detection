@@ -14,6 +14,7 @@ import IconPlane from '~/components/atoms/IconPlane.vue';
 import IconWifi from '~/components/atoms/IconWifi.vue';
 import IconMap from '~/components/atoms/IconMap.vue';
 import IconReport from '~/components/atoms/IconReport.vue';
+import IconProfile from '../atoms/IconProfile.vue';
 
 const { telemetryState, startPolling, stopPolling } = useTelemetry();
 
@@ -42,13 +43,14 @@ const currentDroneStatus = computed(() => {
   return isConnected?.value ? 'Connected' : 'Disconnected';
 });
 
-const iconComponents = { 'plane': IconPlane, 'wifi': IconWifi, 'map': IconMap, 'doc': IconReport };
+const iconComponents = { 'plane': IconPlane, 'wifi': IconWifi, 'map': IconMap, 'doc': IconReport , 'profile': IconProfile};
 
 const pages = {
   'mission-planner': { label: 'Mission Planner', path: '/mission-planner', color: 'bg-[#3E2723]', iconKey: 'plane' },
   'live-monitor': { label: 'Live Monitor', path: '/live-monitor', color: 'bg-[#C60C0C]', iconKey: 'wifi' },
   'map-geotagging': { label: 'Map and Geotagging', path: '/map-geotagging', color: 'bg-[#658D1B]', iconKey: 'map' },
-  'report': { label: 'Report', path: '/report', color: 'bg-[#F57F17]', iconKey: 'doc' }
+  'report': { label: 'Report', path: '/report', color: 'bg-[#F57F17]', iconKey: 'doc' },
+  'profile': { label: 'Profile', path: '/profile', color: 'bg-[#1E1B4B]',iconKey: 'profile' }
 };
 
 const currentPage = computed(() => {
@@ -137,7 +139,6 @@ const handleMotorToggle = async () => {
     <NavBarBranding 
       :connectionStatus="currentDroneStatus" 
       :battery="props.battery"
-      @click="goHome" 
     />
 
     <div class="flex-1 flex justify-center mx-4">

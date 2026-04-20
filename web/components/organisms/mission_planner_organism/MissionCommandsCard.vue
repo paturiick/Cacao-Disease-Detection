@@ -52,6 +52,13 @@ const handleAdd = () => {
   }
   else {
     if (!newCommand.val) { errorMessage.value = "Please enter a valid duration or value."; return; }
+    if (newCommand.val <= 0) {errorMessage.value = "Safety Error: Value must be a positive number.";return;}
+
+    // Safety Check: Limit distance (cm) to 300cm
+    if (currentCmdDetails.value.unit === 'cm' && newCommand.val > 300) {
+      errorMessage.value = "Safety Error: Maximum distance is 300cm for safety reasons.";
+      return;
+    }
     emit('add', { ...newCommand }); 
     newCommand.val = ''; 
   }
