@@ -193,6 +193,8 @@ const savePreset = () => {
             :flightParams="flightParams"
             :commandOptions="commandOptions"
             mode="plan"
+            :allowDelete="true"
+            :allowEdit="true"
             @remove="handleRemoveStep"
             @clear="handleClearSteps"
             @reorder="handleReorderSteps" 
