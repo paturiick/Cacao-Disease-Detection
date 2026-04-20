@@ -1,6 +1,8 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed, onBeforeUnmount } from 'vue';
 import { missionApi } from "~/sections/api/missionApi";
+import { useTelemetry } from "~/components/composables/useTelemetry";
+
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 import FormGroup from '~/components/molecules/profile_molecules/FormGroup.vue';
 
@@ -14,16 +16,39 @@ const userProfile = reactive({
 const stats = reactive({ total: 0, healthy: 0, diseased: 0 });
 const isLoading = ref(true);
 
+// Telemetry Integration
+const { telemetryState, startPolling, stopPolling } = useTelemetry();
+
+const formattedTelemetry = computed(() => {
+  return {
+    gps: telemetryState.connected ? 'Online' : 'Offline',
+    battery: telemetryState.battery || 0,
+  };
+});
+
 onMounted(async () => {
+  startPolling(); // Start listening for live battery/connection status
+  
   try {
     const res = await missionApi.getDetectionAnalytics();
     stats.total = res.total_pods || 0;
     stats.diseased = res.unhealthy || 0;
     stats.healthy = Math.max(0, stats.total - stats.diseased);
+  } catch (error) {
+    console.error("Failed to fetch analytics:", error);
   } finally {
     isLoading.value = false;
   }
 });
+
+onBeforeUnmount(() => {
+  stopPolling(); // Clean up the polling loop when leaving the profile page
+});
+
+const handleLogout = () => {
+  console.log("Signing out... clear tokens/session here.");
+  // Example: navigateTo('/login');
+};
 </script>
 
 <template>
@@ -31,7 +56,11 @@ onMounted(async () => {
     <div class="absolute inset-0 bg-slate-900/70 z-0 backdrop-blur-[4px]"></div>
 
     <div class="z-20 relative">
-      <DashboardNavBar activePage="profile" />
+      <DashboardNavBar 
+        activePage="profile" 
+        :droneStatus="formattedTelemetry.gps" 
+        :battery="formattedTelemetry.battery"
+      />
     </div>
 
     <div class="flex-1 z-10 p-4 md:p-8 flex justify-center items-center overflow-hidden">
@@ -68,6 +97,19 @@ onMounted(async () => {
                 <span class="text-xl font-black text-rose-700">{{ stats.diseased.toLocaleString() }}</span>
               </div>
             </div>
+            
+            <div class="mt-8 pt-6 border-t border-gray-200 flex justify-center w-full">
+              <button 
+                @click="handleLogout" 
+                class="group flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+              >
+                <svg class="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                </svg>
+                <span>Sign Out</span>
+              </button>
+            </div>
+            
           </div>
         </div>
 
@@ -91,6 +133,7 @@ onMounted(async () => {
             </button>
           </div>
         </div>
+        
       </div>
     </div>
   </div>
