@@ -118,7 +118,12 @@ const executeDelete = () => {
         </div>
 
         <div class="flex-1 pr-8 truncate">
-          <p class="text-sm font-bold text-[#0F172A] truncate">{{ mission.name }}</p>
+          <p 
+            class="text-sm font-bold truncate transition-colors"
+            :class="mission.hasUnhealthy ? 'text-red-600' : 'text-[#0F172A]'"
+          >
+            {{ mission.name }}
+          </p>
           <p class="text-[10px] font-semibold text-slate-500 mt-1">ID: #{{ mission.id }} • {{ mission.date }}</p>
         </div>
 
@@ -161,7 +166,6 @@ const executeDelete = () => {
           <p class="text-sm text-slate-600 leading-relaxed">
             <span v-if="deleteMode === 'single'">Are you sure you want to delete this mission record?</span>
             <span v-else>Are you sure you want to delete the <strong>{{ selectedForDeletion.length }}</strong> selected mission records?</span>
-            <br/>This action cannot be undone.
           </p>
         </div>
         

@@ -9,8 +9,6 @@ const props = defineProps({
   mode: { type: String, default: 'plan' } 
 });
 
-const emit = defineEmits(['emergency-land']);
-
 const STATIC_LINE_LENGTH = 300; 
 
 const currentDronePos = ref({ x: 0, y: 0 });
@@ -24,7 +22,6 @@ const isDragging = ref(false);
 let startDragPos = { x: 0, y: 0 };
 
 const hoveredSegId = ref(null);
-const selectedSegId = ref(null); // Tracks the clicked segment
 const mousePos = ref({ x: 0, y: 0 });
 
 const handleZoomIn = () => { zoomMultiplier.value = Math.max(MIN_ZOOM, zoomMultiplier.value - 0.2); };
@@ -32,7 +29,6 @@ const handleZoomOut = () => { zoomMultiplier.value = Math.min(MAX_ZOOM, zoomMult
 const handleZoomReset = () => { 
   zoomMultiplier.value = 1; 
   panOffset.value = { x: 0, y: 0 }; 
-  selectedSegId.value = null;
 };
 
 const handleRecenter = () => {
@@ -74,13 +70,15 @@ const handlePointerMove = (e) => {
 
 const handlePointerUp = () => { isDragging.value = false; };
 
-const handleSegmentClick = (id) => {
-  // Toggle the selection on click
-  selectedSegId.value = selectedSegId.value === id ? null : id;
-};
-
-const handleBackgroundClick = () => {
-  selectedSegId.value = null;
+const handleHover = (id, e) => {
+  if (isDragging.value) return;
+  hoveredSegId.value = id;
+  if (e) {
+    mousePos.value = {
+      x: e.clientX || mousePos.value.x,
+      y: e.clientY || mousePos.value.y
+    };
+  }
 };
 
 const visualData = computed(() => {
@@ -165,7 +163,6 @@ const svgViewBox = computed(() => {
 
 const getOpacity = (segId) => {
   if (hoveredSegId.value !== null) return hoveredSegId.value === segId ? 1 : 0.3;
-  if (selectedSegId.value !== null) return selectedSegId.value === segId ? 1 : 0.3;
   return 1; 
 };
 </script>
@@ -182,14 +179,20 @@ const getOpacity = (segId) => {
     @touchmove.prevent="handlePointerMove"
     @touchend.prevent="handlePointerUp"
   >
-    <div 
-      v-if="hoveredSegmentData && !isDragging"
-      class="fixed z-50 pointer-events-none transition-opacity duration-150 bg-white text-slate-800 px-5 py-4 rounded-xl shadow-xl border border-slate-200 w-auto min-w-[150px] backdrop-blur-md bg-white/90"
-      :style="{ left: mousePos.x + 15 + 'px', top: mousePos.y + 15 + 'px' }"
-    >
-      <div class="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Step {{ hoveredSegmentData.stepNum }} of {{ queue.length }}</div>
-      <div class="text-xl font-black text-[#658D1B] leading-tight">{{ hoveredSegmentData.label }}</div>
-    </div>
+    
+    <ClientOnly>
+      <Teleport to="body">
+        <div 
+          v-if="hoveredSegmentData && !isDragging"
+          class="fixed z-[9999] pointer-events-none transition-opacity duration-150 bg-[#334155] text-white px-4 py-2 rounded-xl shadow-xl w-auto min-w-[120px] flex flex-col items-center justify-center text-center"
+          :style="{ left: mousePos.x + 'px', top: (mousePos.y - 16) + 'px', transform: 'translate(-50%, -100%)' }"
+        >
+          <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Step {{ hoveredSegmentData.stepNum }} of {{ queue.length }}</div>
+          <div class="text-sm font-black text-white leading-tight tracking-wide">{{ hoveredSegmentData.label }}</div>
+          <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-t-[#334155] border-l-transparent border-r-transparent"></div>
+        </div>
+      </Teleport>
+    </ClientOnly>
 
     <div v-if="props.mode !== 'rc'" class="absolute top-4 left-4 z-10 bg-white/80 backdrop-blur-md px-3 py-2 rounded-lg border border-slate-200 shadow-sm flex items-center gap-2 pointer-events-none">
        <span class="relative flex h-2.5 w-2.5">
@@ -207,12 +210,6 @@ const getOpacity = (segId) => {
       <span class="text-[10px] font-black text-slate-500 mt-1 uppercase tracking-widest">N</span>
     </div>
 
-    <div v-if="props.isRunning && props.mode !== 'report'" class="absolute bottom-6 left-4 z-10">
-      <button @click.stop="emit('emergency-land')" class="flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-lg border border-red-500 transition-all active:scale-95">
-        <span class="font-black text-xs uppercase tracking-widest">Emergency Land</span>
-      </button>
-    </div>
-
     <div v-if="props.mode !== 'report'" class="absolute bottom-6 right-4 z-10 flex flex-col bg-white/90 backdrop-blur-md rounded-xl border border-slate-200 shadow-lg overflow-hidden">
       <button @click="handleRecenter" class="p-2.5 text-slate-500 hover:text-[#658D1B] border-b border-slate-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
       <button @click="handleZoomIn" :disabled="zoomMultiplier <= MIN_ZOOM" class="p-2.5 text-slate-500 hover:text-[#658D1B] border-b border-slate-100 disabled:opacity-30"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></button>
@@ -220,7 +217,7 @@ const getOpacity = (segId) => {
       <button @click="handleZoomOut" :disabled="zoomMultiplier >= MAX_ZOOM" class="p-2.5 text-slate-500 hover:text-[#658D1B] disabled:opacity-30"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"></path></svg></button>
     </div>
 
-    <svg :viewBox="svgViewBox" class="w-full h-full" :class="isDragging ? 'cursor-grabbing' : 'cursor-grab'" @click="handleBackgroundClick">
+    <svg :viewBox="svgViewBox" class="w-full h-full" :class="isDragging ? 'cursor-grabbing' : 'cursor-grab'">
       <defs>
         <pattern id="dotGrid" width="120" height="120" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="3" fill="#CBD5E1" opacity="0.6" /></pattern>
         <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.12" /></filter>
@@ -236,16 +233,30 @@ const getOpacity = (segId) => {
         :key="'group-'+seg.id"
         :opacity="getOpacity(seg.id)"
         class="transition-opacity duration-200 ease-in-out cursor-pointer"
-        @mouseenter="hoveredSegId = seg.id"
-        @mouseleave="hoveredSegId = null"
-        @click.stop="handleSegmentClick(seg.id)"
+        @mouseover="handleHover(seg.id, $event)"
+        @mouseout="hoveredSegId = null"
       >
         <line 
           v-if="seg.isMovement"
           :x1="seg.startX" :y1="seg.startY" 
           :x2="seg.endX" :y2="seg.endY" 
-          :stroke="seg.isActive ? '#658D1B' : ((selectedSegId === seg.id || hoveredSegId === seg.id) ? '#334155' : '#94A3B8')" 
-          :stroke-width="(selectedSegId === seg.id || hoveredSegId === seg.id) || seg.isActive ? 24 : 16"
+          stroke="rgba(0,0,0,0)" 
+          stroke-width="80"
+          stroke-linecap="round"
+        />
+        <circle 
+          v-if="!seg.isMovement"
+          :cx="seg.endX" :cy="seg.endY" 
+          r="60" 
+          fill="rgba(0,0,0,0)" 
+        />
+
+        <line 
+          v-if="seg.isMovement"
+          :x1="seg.startX" :y1="seg.startY" 
+          :x2="seg.endX" :y2="seg.endY" 
+          :stroke="seg.isActive ? '#658D1B' : (hoveredSegId === seg.id ? '#334155' : '#94A3B8')" 
+          :stroke-width="hoveredSegId === seg.id || seg.isActive ? 24 : 16"
           stroke-linecap="round"
           :stroke-dasharray="seg.isActive ? 'none' : '15, 30'"
           :filter="seg.isActive ? 'url(#glow)' : ''"
@@ -254,9 +265,9 @@ const getOpacity = (segId) => {
         <circle 
           v-if="seg.isMovement"
           :cx="seg.endX" :cy="seg.endY" 
-          :r="(selectedSegId === seg.id || hoveredSegId === seg.id) || seg.isActive ? 20 : 16" 
+          :r="hoveredSegId === seg.id || seg.isActive ? 20 : 16" 
           fill="#FFFFFF" 
-          :stroke="seg.isActive ? '#658D1B' : ((selectedSegId === seg.id || hoveredSegId === seg.id) ? '#334155' : '#94A3B8')" 
+          :stroke="seg.isActive ? '#658D1B' : (hoveredSegId === seg.id ? '#334155' : '#94A3B8')" 
           stroke-width="5"
           filter="url(#soft-shadow)"
         />
@@ -265,30 +276,12 @@ const getOpacity = (segId) => {
         <circle 
           v-if="!seg.isMovement"
           :cx="seg.endX" :cy="seg.endY" 
-          :r="seg.isActive || (selectedSegId === seg.id || hoveredSegId === seg.id) ? 28 : 24" 
+          :r="seg.isActive || hoveredSegId === seg.id ? 28 : 24" 
           :fill="seg.isActive ? '#F59E0B' : '#FFFFFF'" 
           :stroke="seg.isActive ? '#FFFFFF' : '#F59E0B'"
           stroke-width="4"
           filter="url(#soft-shadow)"
         />
-
-        <g v-if="selectedSegId === seg.id" :transform="`translate(${seg.midX}, ${seg.midY})`">
-          <g transform="translate(0, -62)" filter="url(#soft-shadow)">
-            <path d="M-14 35 L14 35 L0 50 Z" fill="#334155" />
-            
-            <rect x="-120" y="-35" width="240" height="70" rx="35" fill="#334155" />
-            
-            <text 
-              x="0" y="2" 
-              font-size="40" font-weight="900" fill="#FFFFFF" 
-              text-anchor="middle" alignment-baseline="middle"
-              font-family="Inter, sans-serif" letter-spacing="1.5"
-            >
-              {{ seg.label }}
-            </text>
-          </g>
-        </g>
-
       </g>
 
       <g :transform="`translate(${currentDronePos.x}, ${currentDronePos.y}) rotate(${currentDroneYaw}) scale(8)`" filter="url(#soft-shadow)">

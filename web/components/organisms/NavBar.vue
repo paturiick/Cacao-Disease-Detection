@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router';
 import { useDrone } from '~/sections/api/statusApi.js'; 
 
 import { useTelemetry } from '~/components/composables/useTelemetry.js';
-
 import { missionApi } from '~/sections/api/missionApi.js';
 
 import NavBarBranding from '~/components/molecules/NavBarBranding.vue';
@@ -28,16 +27,14 @@ const getSignalColor = (type, value) => {
     if (value >= -80) return 'text-amber-500';
     return 'text-red-500';
   }
-  
   return 'text-gray-400';
 };
 
-// 1. Removed activePage from props (it's automatic now!)
 const props = defineProps({
   battery: { type: Number, default: null } 
 });
 
-const route = useRoute(); // <-- Initialize the route
+const route = useRoute();
 const { isConnected, isConnecting, connectDrone } = useDrone();
 
 const currentDroneStatus = computed(() => {
@@ -54,16 +51,18 @@ const pages = {
   'report': { label: 'Report', path: '/report', color: 'bg-[#F57F17]', iconKey: 'doc' }
 };
 
-// 2. Automatically find the current page based on the browser's URL path
 const currentPage = computed(() => {
   const foundPage = Object.values(pages).find(p => p.path === route.path);
   return foundPage || pages['mission-planner']; // Default fallback
 });
 
-const navigationLinks = computed(() => Object.values(pages).filter(p => p.label !== currentPage.value.label));
+// REMOVED THE FILTER: Now it always returns all pages for the circle buttons
+const navigationLinks = computed(() => Object.values(pages));
 
 const goTo = (path) => navigateTo(path);
-const logout = () => navigateTo('/login'); 
+
+// Changed to redirect to home instead of the deleted login page
+const goHome = () => navigateTo('/'); 
 
 const syncMessage = ref('');
 const isError = ref(false);
@@ -98,7 +97,7 @@ const handleSync = async () => {
   }
 };
 
-  // --- MOTOR COOLING STATE ---
+// --- MOTOR COOLING STATE ---
 const isMotorOn = ref(false); 
 const isMotorToggling = ref(false);
 
@@ -130,7 +129,6 @@ const handleMotorToggle = async () => {
     setTimeout(() => { syncMessage.value = ''; }, 4000);
   }
 };
-
 </script>
 
 <template>
@@ -139,7 +137,7 @@ const handleMotorToggle = async () => {
     <NavBarBranding 
       :connectionStatus="currentDroneStatus" 
       :battery="props.battery"
-      @click="logout" 
+      @click="goHome" 
     />
 
     <div class="flex-1 flex justify-center mx-4">
@@ -150,30 +148,14 @@ const handleMotorToggle = async () => {
       </ActivePageBanner>
     </div>
 
-   <div class="flex items-center space-x-3">
-  
-  <div v-if="isConnected" class="flex items-center space-x-3 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100 h-9 flex-shrink-0">
-    
-    <div class="flex flex-col items-center justify-center min-w-[32px]" title="GPS 2.4GHz Signal (RSSI)">
-      <div class="flex items-center gap-1.5">
-        <div class="w-3.5 h-3.5 flex items-center justify-center">
-          <IconMap class="w-full h-full" :class="getSignalColor('rssi', telemetryState.esp32_rssi)" />
-        </div>
-        <span class="text-[10px] font-black leading-none" :class="getSignalColor('rssi', telemetryState.esp32_rssi)">
-          {{ telemetryState.esp32_rssi }}
-        </span>
-      </div>
-      <span class="text-[7px] uppercase text-gray-400 font-bold leading-none mt-0.5">GPS</span>
-    </div>
-  </div>
-
-  <span 
-    v-if="syncMessage" 
-    class="text-[10px] font-bold whitespace-nowrap" 
-    :class="isError ? 'text-red-500' : 'text-emerald-500'"
-  >
-    {{ syncMessage }}
-  </span>
+    <div class="flex items-center space-x-3">
+      <span 
+        v-if="syncMessage" 
+        class="text-[10px] font-bold whitespace-nowrap" 
+        :class="isError ? 'text-red-500' : 'text-emerald-500'"
+      >
+        {{ syncMessage }}
+      </span>
 
       <button 
         @click="handleSync"
@@ -192,27 +174,6 @@ const handleMotorToggle = async () => {
         {{ isConnecting ? 'Syncing...' : 'Sync Drone' }}
       </button>
 
-      <button 
-        @click="handleMotorToggle"
-        :disabled="isMotorToggling || !isConnected"
-        title="Toggle Cooling Motors"
-        class="flex items-center justify-center w-9 h-9 bg-slate-800 text-white rounded-full border border-slate-700 hover:bg-slate-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <svg 
-          class="w-4 h-4 transition-all duration-300" 
-          :class="{
-            'animate-spin text-amber-400': isMotorOn && !isMotorToggling, 
-            'opacity-50 text-white': !isMotorOn && !isMotorToggling,
-            'animate-pulse text-amber-200': isMotorToggling
-          }" 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c.88 0 1.63-.56 1.9-1.34a4 4 0 1 0-3.24 3.24A2 2 0 1 1 12 11zm0 2c-.88 0-1.63.56-1.9 1.34a4 4 0 1 0 3.24-3.24A2 2 0 1 1 12 13z"></path>
-        </svg>
-      </button>
-
       <div class="h-8 w-px bg-gray-200"></div>
 
       <NavCircleButton 
@@ -221,6 +182,7 @@ const handleMotorToggle = async () => {
         :label="page.label" 
         :color-class="page.color" 
         @click="goTo(page.path)"
+        :class="{ 'ring-2 ring-offset-2 ring-slate-300 scale-105': currentPage.path === page.path }" 
       >
         <template #icon>
           <component :is="iconComponents[page.iconKey]" />

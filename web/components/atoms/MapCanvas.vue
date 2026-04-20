@@ -7,17 +7,18 @@ const props = defineProps({
   lat: { type: Number, default: 0 },
   lng: { type: Number, default: 0 },
   heading: { type: Number, default: 0 },
-  // 1. INCREASED INITIAL ZOOM: Set to 21 based on your reference image
   zoom: { type: Number, default: 21 },
-  // Array of detection objects from map-geotagging-screen.vue
   trees: { type: Array, default: () => [] }
 });
 
 const mapContainer = ref(null);
 let map = null;
 let droneMarker = null;
-let treeLayerGroup = null; // Layer group for dynamic cacao pod markers
+let treeLayerGroup = null;
 let L = null;
+
+// Track rendered trees to prevent redundant DOM updates
+const renderedTreeMarkers = new Map();
 
 // --- STATE: MAP TRACKING ---
 const isTracking = ref(true);
@@ -32,22 +33,20 @@ const recenterMap = () => {
   }
 };
 
-defineExpose({
-  recenter: recenterMap,
-  recenterMap
-});
+defineExpose({ recenterMap });
 
-// --- Custom Drone Icon Generator ---
-const getDroneIcon = (heading) => {
+// --- Custom Drone Icon Generator (Called ONCE) ---
+const createDroneIcon = (heading) => {
   const tempContainer = document.createElement('div');
 
   const vnode = createVNode('div', { class: 'relative flex items-center justify-center w-[24px] h-[24px]' }, [
     createVNode('div', { class: 'absolute w-full h-full bg-[#658D1B]/30 rounded-full animate-ping' }),
     
+    // FIXED: Changed back to 'svg' and restored the viewBox
     createVNode('svg', {
       viewBox: '-24 -24 48 48',
-      class: 'relative z-10 w-6 h-6', 
-      style: `transform: rotate(${heading}deg); transition: transform 0.3s ease-out; filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.5));`
+      class: 'drone-icon-wrapper relative z-10 w-6 h-6', 
+      style: `transform: rotate(${heading}deg); transition: transform 0.15s linear; filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.5));`
     }, [
       createVNode(DroneModel, { isRunning: true })
     ])
@@ -63,16 +62,16 @@ const getDroneIcon = (heading) => {
   });
 };
 
-// --- Cacao Pod Marker Rendering ---
+// --- Smart Cacao Pod Marker Rendering ---
 const renderTrees = (trees) => {
   if (!map || !L || !treeLayerGroup) return;
 
-  treeLayerGroup.clearLayers();
-
   trees.forEach(tree => {
+    // Skip if we already rendered this specific tree
+    if (renderedTreeMarkers.has(tree.id)) return;
+
     const statusColor = tree.status === 'diseased' ? '#ef4444' : '#22c55e';
     
-    // 2. ADJUSTED PIN SIZE: radius increased to 5 for better visibility at high zoom
     const marker = L.circleMarker([tree.lat, tree.lng], {
       radius: 5, 
       color: '#ffffff', 
@@ -80,8 +79,6 @@ const renderTrees = (trees) => {
       fillColor: statusColor,
       fillOpacity: 1
     });
-
-    // Green area/Accuracy ring remains removed as requested
 
     marker.bindPopup(`
       <div class="font-sans text-center min-w-[120px] p-1">
@@ -96,6 +93,9 @@ const renderTrees = (trees) => {
     `);
 
     marker.addTo(treeLayerGroup);
+    
+    // Save to map so we don't redraw it next time
+    renderedTreeMarkers.set(tree.id, marker);
   });
 };
 
@@ -124,23 +124,33 @@ onMounted(async () => {
 
   if (props.lat !== 0 && props.lng !== 0) {
     droneMarker = L.marker([props.lat, props.lng], { 
-      icon: getDroneIcon(props.heading) 
+      icon: createDroneIcon(props.heading) 
     }).addTo(map);
   }
 });
 
+// Watch specifically for trees
 watch(() => props.trees, (newTrees) => {
   renderTrees(newTrees);
 }, { deep: true });
 
+// Watch for Drone Movement
 watch(() => [props.lat, props.lng, props.heading], ([newLat, newLng, newHeading]) => {
   if (newLat !== 0 && newLng !== 0 && map && L) {
+    
     if (droneMarker) {
+      // Update Position
       droneMarker.setLatLng([newLat, newLng]);
-      droneMarker.setIcon(getDroneIcon(newHeading || 0));
+      
+      // Update Heading via raw DOM manipulation instead of rebuilding the icon
+      const iconEl = droneMarker.getElement();
+      if (iconEl) {
+        const wrapper = iconEl.querySelector('.drone-icon-wrapper');
+        if (wrapper) wrapper.style.transform = `rotate(${newHeading}deg)`;
+      }
     } else {
       droneMarker = L.marker([newLat, newLng], { 
-        icon: getDroneIcon(newHeading || 0) 
+        icon: createDroneIcon(newHeading || 0) 
       }).addTo(map);
     }
     
@@ -159,6 +169,7 @@ onUnmounted(() => {
     map.off('dragstart');
     map.remove();
   }
+  renderedTreeMarkers.clear();
 });
 </script>
 
