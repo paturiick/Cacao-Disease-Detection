@@ -139,7 +139,6 @@ const handleMotorToggle = async () => {
     <NavBarBranding 
       :connectionStatus="currentDroneStatus" 
       :battery="props.battery"
-      @click="goHome" 
     />
 
     <div class="flex-1 flex justify-center mx-4">

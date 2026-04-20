@@ -53,6 +53,22 @@ const isLowBattery = computed(() => {
         </div>
       </div>
       
+      <div class="group col-span-1 p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between print:shadow-none print:border-slate-300">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start Battery</span>
+          <div class="p-1.5 bg-slate-50 rounded-lg text-slate-400 group-hover:text-emerald-500 group-hover:bg-emerald-50 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a1 1 0 00-1-1h-1V9a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2v-2h1a1 1 0 001-1z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11h10v2H7z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-1">
+          <span class="text-3xl font-black text-slate-800 tracking-tight">{{ mission.telemetry?.battery_start || 0 }}</span>
+          <span class="text-lg font-black text-slate-400">%</span>
+        </div>
+      </div>
+
       <div 
         class="group col-span-1 p-5 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between print:shadow-none"
         :class="isLowBattery ? 'bg-gradient-to-br from-[#C60C0C]/5 to-transparent border border-[#C60C0C]/30 hover:border-[#C60C0C]/50' : 'bg-white border border-slate-200 print:border-slate-300'"
