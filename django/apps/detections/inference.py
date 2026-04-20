@@ -14,9 +14,9 @@ from drone_controller.instance import get_video_receiver
 from .models import CacaoDetectionLog, DetectedCacao
 from apps.telemetry.models import LiveSystemState 
 
-MODEL_PATH = "/app/models/ver7.pt" 
+MODEL_PATH = "/app/models/ver9.pt" 
 if not os.path.exists(MODEL_PATH):
-    MODEL_PATH = os.path.join(os.getcwd(), "models", "ver7.pt")
+    MODEL_PATH = os.path.join(os.getcwd(), "models", "ver9.pt")
 
 # ==========================================
 # 1. VERIFY GPU AND LOAD MODEL
@@ -118,7 +118,7 @@ def start_inference_loop():
                     persist=True, 
                     tracker="/app/models/botsort.yaml", 
                     conf=0.5, 
-                    iou=0.8, 
+                    iou=0.7, 
                     verbose=False, 
                     imgsz=640, 
                     device=0 if has_gpu else 'cpu' 
@@ -127,7 +127,7 @@ def start_inference_loop():
                 new_detections = []
 
                 for result in results:
-                    annotated_frame = result.plot()
+                    annotated_frame = img.copy()
 
                     if result.boxes.id is not None:
                         boxes = result.boxes.xyxy.cpu().numpy()
@@ -138,6 +138,19 @@ def start_inference_loop():
                         for box, track_id, cls, conf in zip(boxes, track_ids, clss, confs):
                             label_name = model.names[cls].lower()
                             status = "unhealthy" if "unhealthy" in label_name else "healthy"
+
+                            color = (0, 0, 255) if status == "unhealthy" else (0, 255, 0)
+                            x1, y1, x2, y2 = map(int, box)
+                            label_text = f"ID:{track_id} {label_name} ({int(conf*100)}%)"
+
+                            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+                            cv2.putText(annotated_frame, label_text, (x1, y1 - 10), 
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                        
+                        for box, track_id, cls, conf in zip(boxes, track_ids, clss, confs):
+                            label_name = model.names[cls].lower()
+                            status = "unhealthy" if "unhealthy" in label_name else "healthy"
+
                             seen_pods[track_id] = status
 
                             if current_plan and active_session and (track_id not in captured_ids):

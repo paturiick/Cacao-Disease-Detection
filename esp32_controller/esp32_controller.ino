@@ -34,7 +34,7 @@ void setup() {
   setCpuFrequencyMhz(80);                    // Drops to 80MHz to save aircraft battery
 
   Serial.begin(115200);
-  GPSserial.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  GPSserial.begin(115200, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
 
   // 2. WIFI SETUP (Direct Connection Mode)
   WiFi.softAP(ssid, password);
