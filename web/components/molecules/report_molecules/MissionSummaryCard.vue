@@ -189,7 +189,7 @@ onUnmounted(() => {
               <div class="col-span-1 text-center font-bold text-slate-400 print:text-black">{{ step.order }}</div>
               <div class="col-span-1 font-mono text-slate-500 print:text-black">{{ step.step_id }}</div>
               <div class="col-span-1 font-bold text-[#0F172A] uppercase text-xs">{{ step.command }}</div>
-              <div class="col-span-1 text-right font-black text-[#658D1B] print:text-black">{{ step.value }}</div>
+              <div class="col-span-1 text-right font-black text-[#0F172A] print:text-black">{{ step.value }}</div>
             </div>
           </div>
         </div>

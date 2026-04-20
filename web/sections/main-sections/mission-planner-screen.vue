@@ -17,10 +17,10 @@ import CounterClockwiseIcon from '~/assets/icons/Counter-clockwise.svg';
 import HoverIcon from '~/assets/icons/Hover.svg';
 
 import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
-import FlightParametersCard from '~/components/organisms/mission_planner_organism/FlightParametersCard.vue';
-import MissionCommandsCard from '~/components/organisms/mission_planner_organism/MissionCommandsCard.vue';
 import MissionHistoryCard from '~/components/organisms/mission_planner_organism/MissionHistoryCard.vue';
 import ControlPanel from '~/components/organisms/mission_planner_organism/ControlPanel.vue';
+import PresetSidebar from '~/components/organisms/mission_planner_organism/PresetSidebar.vue';
+import PresetEditorModal from '~/components/organisms/mission_planner_organism/PresetEditorModal.vue';
 
 const { telemetryState, startPolling, stopPolling } = useTelemetry();
 
@@ -31,13 +31,10 @@ const isLanding = ref(false);
 const currentStepIndex = ref(-1);
 const isDrawingMode = ref(false);
 
-// --- NEW: RC Mode State ---
-const currentMode = ref('plan'); // Tracks 'plan' vs 'rc' mode
+const currentMode = ref('plan'); 
 
-const flightParams = reactive({ 
-  altitude: 2,
-  speed: 30,
-  mode: 'Stabilize',
+const flightParams = reactive({
+  speed: 23, 
   missionPad: false 
 });
 
@@ -70,9 +67,7 @@ const commandOptions = [
   { label: 'Rotate CW',   value: 'cw',      unit: 'deg', icon: ClockwiseIcon},
   { label: 'Rotate CCW',  value: 'ccw',     unit: 'deg', icon: CounterClockwiseIcon},
   { label: 'Hover',       value: 'hover',   unit: 's',   icon: HoverIcon },
-  { label: 'XYZ Coordinates', value: 'go',  unit: 'x y z spd', icon: `<svg...` },
   { label: 'RC Override', value: 'rc', unit: 'a b c d', icon: HoverIcon },
-
   { label: 'Dumb Wait (Test)', value: 'dumb', unit: 's', icon: HoverIcon }
 ];
 
@@ -88,13 +83,105 @@ const decorateStep = (stepDto) => {
   };
 };
 
+const presets = ref([]);
+
+watch(presets, (newPresets) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('lupad_flight_presets', JSON.stringify(newPresets));
+  }
+}, { deep: true });
+
+const activePresetId = ref(null);
+const isModalOpen = ref(false);
+const presetToEdit = ref(null);
+
+const openCreateModal = () => {
+  presetToEdit.value = null;
+  isModalOpen.value = true;
+};
+
+const openEditModal = (preset) => {
+  presetToEdit.value = preset;
+  isModalOpen.value = true;
+};
+
+const handleEditFromHistory = () => {
+  if (activePresetId.value) {
+    const preset = presets.value.find(p => p.id === activePresetId.value);
+    if (preset) openEditModal(preset);
+  } else {
+    openCreateModal();
+  }
+};
+
+// PERFECTED: Always clear the board if it's the last preset or if active ID was lost on refresh
+const handleDeletePreset = async (presetToDelete) => {
+  // 1. Remove the preset from the array
+  presets.value = presets.value.filter(p => p.id !== presetToDelete.id);
+  
+  // 2. If it was active, OR there are no presets left, OR we refreshed and lost active state
+  if (activePresetId.value === presetToDelete.id || presets.value.length === 0 || activePresetId.value === null) {
+    activePresetId.value = null;
+    
+    // Clear the active flight plan queue via API and locally
+    if (planId.value) {
+      try { await missionApi.clearSteps(planId.value); } catch(e) { console.error("Failed to clear API", e); }
+    }
+    missionQueue.value = [];
+    currentStepIndex.value = -1;
+    
+    // 3. Automatically swap to the next available preset if any exist
+    if (presets.value.length > 0) {
+      await loadPresetIntoHistory(presets.value[0]);
+    }
+  }
+};
+
+const handleSavePreset = (savedData) => {
+  const index = presets.value.findIndex(p => p.id === savedData.id);
+  if (index >= 0) {
+    presets.value[index] = savedData;
+  } else {
+    presets.value.push(savedData);
+  }
+  loadPresetIntoHistory(savedData);
+};
+
+const loadPresetIntoHistory = async (preset) => {
+  if (!planId.value) return;
+  activePresetId.value = preset.id;
+  
+  flightParams.speed = preset.speed;
+  await missionApi.patchPlan(planId.value, { speed: preset.speed });
+
+  await missionApi.clearSteps(planId.value);
+  missionQueue.value = [];
+  currentStepIndex.value = -1;
+
+  for (const cmd of preset.steps) {
+    const created = await missionApi.addStep(planId.value, { type: cmd.type, val: cmd.val });
+    missionQueue.value.push(decorateStep(created));
+  }
+};
+
 onMounted(async () => {
+  if (typeof window !== 'undefined') {
+    const savedPresets = localStorage.getItem('lupad_flight_presets');
+    if (savedPresets) {
+      try {
+        presets.value = JSON.parse(savedPresets);
+      } catch (e) {
+        console.error("Failed to parse saved presets", e);
+      }
+    }
+  }
+
   try {
     startPolling();
     const plan = await missionApi.getActive();
     planId.value = plan.id;
     flightParams.altitude = plan.altitude;
-    flightParams.speed = plan.speed;
+    flightParams.speed = plan.speed || 23; 
     flightParams.mode = plan.mode;
     flightParams.missionPad = plan.missionPad ?? false; 
     missionQueue.value = (plan.steps || []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(decorateStep);
@@ -113,38 +200,72 @@ watch(() => ({ ...flightParams }), () => {
   fpTimer = setTimeout(() => { missionApi.patchPlan(planId.value, { ...flightParams }); }, 350);
 }, { deep: true });
 
-const handleAddCommand = async (cmd) => {
+// --- ADDED HANDLER FUNCTIONS FOR REORDER, EDIT, AND REMOVE ---
+
+// Helper function to rebuild the flight plan in the backend
+const syncQueueToApi = async () => {
   if (!planId.value) return;
-  const created = await missionApi.addStep(planId.value, { type: cmd.type, val: cmd.val });
-  missionQueue.value.push(decorateStep(created));
+  
+  // Make a copy of the current desired state
+  const currentQueue = [...missionQueue.value]; 
+  
+  // Clear the backend
+  await missionApi.clearSteps(planId.value);
+  missionQueue.value = [];
+  
+  // Re-add them in the exact new order/state
+  for (const cmd of currentQueue) {
+    const created = await missionApi.addStep(planId.value, { 
+      type: cmd.type, 
+      val: cmd.val, 
+      speed: cmd.speed
+    });
+    missionQueue.value.push(decorateStep(created));
+  }
 };
 
-const handleRemoveCommand = async (index) => {
-  const step = missionQueue.value[index];
-  if (!step) return;
-  await missionApi.deleteStep(step.id);
-  missionQueue.value.splice(index, 1);
+const handleReorder = async ({ from, to }) => {
+  if (isRunning.value) return;
+  // 1. Move item locally
+  const item = missionQueue.value.splice(from, 1)[0];
+  missionQueue.value.splice(to, 0, item);
+  // 2. Sync to backend
+  await syncQueueToApi();
 };
+
+const handleEdit = async ({ index, type, val, speed }) => {
+  if (isRunning.value) return;
+  // 1. Update item locally
+  missionQueue.value[index].type = type;
+  missionQueue.value[index].val = val;
+  missionQueue.value[index].speed = speed;
+  
+  // Refresh the local decoration properties
+  const updatedDecoration = decorateStep(missionQueue.value[index]);
+  missionQueue.value[index].label = updatedDecoration.label;
+  missionQueue.value[index].icon = updatedDecoration.icon;
+  missionQueue.value[index].unit = updatedDecoration.unit;
+
+  // 2. Sync to backend
+  await syncQueueToApi();
+};
+
+const handleRemove = async (index) => {
+  if (isRunning.value) return;
+  // 1. Remove locally
+  missionQueue.value.splice(index, 1);
+  // 2. Sync to backend
+  await syncQueueToApi();
+};
+
+// -------------------------------------------------------------
 
 const handleClear = async () => {
   if (!planId.value) return;
   await missionApi.clearSteps(planId.value);
   missionQueue.value = [];
   currentStepIndex.value = -1;
-};
-
-const handleReorderCommand = async ({ from, to }) => {
-  const movedItem = missionQueue.value.splice(from, 1)[0];
-  missionQueue.value.splice(to, 0, movedItem);
-};
-
-const handleEditCommand = async ({ index, type, val }) => {
-  const step = missionQueue.value[index];
-  if (!step || !planId.value) return;
-  step.type = type;
-  step.val = val;
-  missionQueue.value.splice(index, 1, decorateStep(step));
-  if (missionApi.updateStep) await missionApi.updateStep(step.id, { type, val });
+  activePresetId.value = null; 
 };
 
 const handleSyncDrawnCommands = async (newCommands) => {
@@ -170,7 +291,6 @@ const startStatusPoll = () => {
       if (['completed', 'failed', 'cancelled', 'inactive'].includes(s.status)) {
         stopStatusPoll();
         
-        // --- UI State Reset ---
         isRunning.value = false;
         isLanding.value = false; 
         currentStepIndex.value = -1;
@@ -196,25 +316,18 @@ const handleRunMission = async () => {
   
   try {
     const res = await missionApi.run();
-    
-    // CHECK THE RESPONSE: Django returns { ok: true, session_id: "..." }
     if (res.ok && res.session_id) {
-      console.log("[MISSION] Started! Session ID captured:", res.session_id);
-      
-      // SAVE TO GLOBAL STORE: This wakes up the counters on the other screen!
       activeSessionId.value = res.session_id;
-      isStreamActive.value = true; // Ensures the SSE tunnel starts
-      
+      isStreamActive.value = true; 
       startStatusPoll();
     } else {
       modalConfig.title = "Mission Failed to Start";
-      modalConfig.message = res.text || "An error occurred."; // Backend sends errors in 'text'
+      modalConfig.message = res.text || "An error occurred."; 
       modalConfig.isWarning = true;
       showCompleteModal.value = true;
       isRunning.value = false;
     }
   } catch (e) {
-    console.error("[MISSION] API Error:", e);
     isRunning.value = false;
   }
 };
@@ -225,7 +338,6 @@ const handleEmergencyLand = async () => {
   try { await missionApi.forceLand(); } catch (e) {} finally { setTimeout(() => { isLanding.value = false; }, 2000); }
 };
 
-// --- NEW: Live RC Operations ---
 const handleLiveRcCommand = async (rcData) => {
   try {
     const rcString = `${rcData.a} ${rcData.b} ${rcData.c} ${rcData.d}`;
@@ -263,18 +375,23 @@ onBeforeUnmount(() => {
     <div class="flex-1 z-10 p-6 overflow-hidden relative">
       <div class="flex flex-col xl:flex-row gap-6 h-full max-w-[1800px] mx-auto transition-all duration-700">
 
-        <div v-show="currentMode === 'plan'" class="w-full xl:w-80 flex flex-col gap-6 shrink-0 h-full transition-all duration-500">
-          <FlightParametersCard v-model="flightParams" />
-          
-          <Transition name="card-fold">
-            <div v-if="!isDrawingMode" class="flex-1 flex flex-col min-h-0 origin-top">
-              <MissionCommandsCard :commandOptions="commandOptions" @add="handleAddCommand" />
-            </div>
-          </Transition>
-        </div>
+        <Transition name="card-fold">
+          <div v-show="currentMode === 'plan' && !isDrawingMode" class="w-full xl:w-80 flex flex-col gap-6 shrink-0 h-full transition-all duration-500 origin-top">
+            
+            <PresetSidebar 
+              :presets="presets"
+              :active-preset-id="activePresetId"
+              @select="loadPresetIntoHistory"
+              @create="openCreateModal"
+              @edit="openEditModal"
+              @delete="handleDeletePreset"
+            />
+          </div>
+        </Transition>
 
         <div class="flex flex-col h-full min-h-0 transition-all duration-700 ease-in-out"
              :class="(isDrawingMode || currentMode === 'rc') ? 'flex-[2.5]' : 'flex-1'">
+             
           <MissionHistoryCard
             :queue="missionQueue"
             :isRunning="isRunning"
@@ -285,12 +402,14 @@ onBeforeUnmount(() => {
             :mode="currentMode"
             @update:mode="currentMode = $event"
             @mode-change="isDrawingMode = $event"
-            @remove="handleRemoveCommand"
             @clear="handleClear"
-            @reorder="handleReorderCommand" 
-            @edit="handleEditCommand"
             @sync-drawn-commands="handleSyncDrawnCommands"
             @send-rc="handleLiveRcCommand"
+            @create-preset="openCreateModal"
+            @edit-preset="handleEditFromHistory"
+            @reorder="handleReorder"
+            @edit="handleEdit"
+            @remove="handleRemove"
           />
         </div>
 
@@ -313,29 +432,17 @@ onBeforeUnmount(() => {
             </h3>
             
             <div class="flex gap-3 w-full mb-3">
-              <button 
-                @click="handleTakeoff"
-                class="flex-1 py-3 bg-[#658D1B] hover:bg-[#557516] text-white rounded-lg font-bold text-sm tracking-wide uppercase transition-colors shadow-md flex justify-center items-center gap-2"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-                Takeoff
+              <button @click="handleTakeoff" class="flex-1 py-3 bg-[#658D1B] hover:bg-[#557516] text-white rounded-lg font-bold text-sm tracking-wide uppercase transition-colors shadow-md flex justify-center items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg> Takeoff
               </button>
               
-              <button 
-                @click="handleLand"
-                class="flex-1 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-bold text-sm tracking-wide uppercase transition-colors shadow-md flex justify-center items-center gap-2"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
-                Land
+              <button @click="handleLand" class="flex-1 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-bold text-sm tracking-wide uppercase transition-colors shadow-md flex justify-center items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg> Land
               </button>
             </div>
 
-            <button 
-              @click="handleEmergencyLand" 
-              class="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm tracking-wide uppercase transition-colors shadow-md flex justify-center items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-              Emergency Land
+            <button @click="handleEmergencyLand" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm tracking-wide uppercase transition-colors shadow-md flex justify-center items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Emergency Land
             </button>
           </div>
 
@@ -348,6 +455,14 @@ onBeforeUnmount(() => {
       :isOpen="showCompleteModal" :title="modalConfig.title" :message="modalConfig.message"
       :isWarning="modalConfig.isWarning" :isSuccess="modalConfig.isSuccess" :cancelText="modalConfig.cancelText"
       @cancel="showCompleteModal = false"
+    />
+
+    <PresetEditorModal 
+      :is-open="isModalOpen"
+      :preset-to-edit="presetToEdit"
+      :commandOptions="commandOptions"
+      @close="isModalOpen = false"
+      @save="handleSavePreset"
     />
   </div>
 </template>

@@ -6,7 +6,6 @@ import SectionHeader from '~/components/atoms/SectionHeader.vue';
 import MissionListEmpty from '~/components/molecules/mission_plan_molecules/MissionListEmpty.vue';
 import MissionListItem from '~/components/molecules/mission_plan_molecules/MissionListItem.vue';
 import MissionStatusBadge from '~/components/molecules/mission_plan_molecules/MissionStatusBadge.vue';
-import ConfirmationModal from '~/components/molecules/mission_plan_molecules/ConfirmationModal.vue';
 
 import VisualBoard from '~/components/organisms/mission_planner_organism/VisualBoard.vue';
 
@@ -19,27 +18,7 @@ const props = defineProps({
   mode: { type: String, default: 'plan' } 
 });
 
-// Added 'duplicate' to the emitted events
-const emit = defineEmits(['remove', 'clear', 'reorder', 'edit', 'update:mode', 'send-rc', 'save-to-plan', 'duplicate']);
-
-const showModal = ref(false);
-const modalConfig = ref({ title: '', message: '', isWarning: false, confirmText: 'Confirm', cancelText: 'Cancel' });
-
-const handleClearAttempt = () => {
-  if (props.isRunning) {
-    modalConfig.value = { title: 'Mission in Progress', message: 'You cannot clear the flight plan while a mission is currently executing.', isWarning: true, confirmText: 'OK', cancelText: 'Close' };
-    showModal.value = true;
-  } else {
-    modalConfig.value = { title: 'Clear Flight Plan?', message: 'Are you sure you want to remove all commands? This action cannot be undone.', isWarning: false, confirmText: 'Yes, Clear All', cancelText: 'Cancel' };
-    showModal.value = true;
-  }
-};
-
-const onModalConfirm = () => {
-  if (!modalConfig.value.isWarning) emit('clear'); 
-  showModal.value = false;
-};
-const onModalCancel = () => { showModal.value = false; };
+const emit = defineEmits(['remove', 'reorder', 'edit', 'update:mode', 'send-rc', 'save-to-plan', 'duplicate']);
 
 const draggedIndex = ref(null);
 const dragOverIndex = ref(null);
@@ -123,7 +102,6 @@ const saveEdit = () => {
   showEditModal.value = false;
 };
 
-// --- NEW FORMATTER HELPERS ---
 const getFormattedValue = (item) => {
   if (item.type === 'rc') {
     const p = String(item.val).split(' ');
@@ -152,19 +130,20 @@ const getFormattedUnit = (item) => {
       
       <div class="flex gap-3 items-center">
          <MissionStatusBadge :isActive="props.isRunning" />
-         <button v-if="props.queue.length > 0" @click="handleClearAttempt" class="text-[10px] font-bold transition-colors uppercase tracking-tighter underline" :class="props.isRunning ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:text-red-700'">Clear</button>
       </div>
     </div>
 
     <div class="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden border border-gray-100 rounded-lg">
       <div class="flex flex-col h-full bg-white z-10 shadow-[4px_0_15px_-3px_rgba(0,0,0,0.05)] relative transition-all duration-300 w-full lg:w-1/2 border-r border-gray-100">
         <div class="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-300">
+          
           <MissionListItem :isConfig="true" label="Initial Configuration" :isActive="props.activeIndex === 0" :isRunning="props.isRunning" class="shrink-0 mb-4">
             <template #details>
-               <div class="grid grid-cols-3 gap-2 text-xs mt-2">
-                 <div class="bg-gray-50 rounded border border-gray-200 p-1.5 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Alt</span>{{ flightParams.altitude || 0 }}m</div>
-                 <div class="bg-gray-50 rounded border border-gray-200 p-1.5 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Spd</span>{{ flightParams.speed || 0 }}cm/s</div>
-                 <div class="bg-gray-50 rounded border border-gray-200 p-1.5 text-center"><span class="block text-gray-400 font-bold text-[10px] uppercase">Mode</span>{{ flightParams.mode || '-' }}</div>
+               <div class="mt-2 flex">
+                 <div class="bg-white rounded border border-gray-200 px-4 py-1.5 text-center shadow-sm w-fit min-w-[70px]">
+                   <span class="block text-slate-400 font-bold text-[10px] uppercase tracking-wider mb-0.5">SPD</span>
+                   <span class="text-sm font-medium text-slate-800">{{ flightParams.speed || 0 }}cm/s</span>
+                 </div>
                </div>
             </template>
           </MissionListItem>
@@ -277,6 +256,5 @@ const getFormattedUnit = (item) => {
       </div>
     </div>
 
-    <ConfirmationModal :isOpen="showModal" :title="modalConfig.title" :message="modalConfig.message" :isWarning="modalConfig.isWarning" :confirmText="modalConfig.confirmText" :cancelText="modalConfig.cancelText" @confirm="onModalConfirm" @cancel="onModalCancel" />
   </BaseCard>
 </template>

