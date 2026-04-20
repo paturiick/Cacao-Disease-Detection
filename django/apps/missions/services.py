@@ -90,12 +90,16 @@ def send_live_override(cmd: str) -> dict:
     if not client.status().get("connected"):
         return {"ok": False, "text": "Hardware disconnected."}
         
-    # 1. Flag the singleton background mission thread to abort its loop immediately
     executor.cancel()
     
-    # 2. Fire the raw command directly to the UDP socket to halt the physical drone
-    reply = client.send(cmd)
-    
-    # Check reply text directly for errors
-    is_ok = "error" not in str(reply.text).lower() if hasattr(reply, 'text') else False
-    return {"ok": is_ok, "text": str(reply.text) if hasattr(reply, 'text') else "Override Sent"}
+    try:
+        if client.sock and client.addr:
+            client.sock.sendto(cmd.encode("utf-8"), client.addr)
+            print(f"[OVERRIDE] Sent emergency '{cmd}' directly via UDP.", flush=True)
+            return {"ok": True, "text": f"Override '{cmd}' sent successfully."}
+        else:
+            return {"ok": False, "text": "Network socket is not initialized."}
+            
+    except Exception as e:
+        print(f"[OVERRIDE ERROR] Failed to send UDP packet: {e}", flush=True)
+        return {"ok": False, "text": f"UDP transmission failed: {str(e)}"}
