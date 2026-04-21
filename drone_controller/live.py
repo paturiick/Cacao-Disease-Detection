@@ -80,6 +80,8 @@ class VideoReceiver:
         """Called by the AI thread to update what we should draw."""
         with self._lock:
             self.current_detections = detections
+            self._ut16_update_time = time.perf_counter()
+            self._ut16_needs_measurement = True
 
     def _run(self, stop_event):
         """Main loop isolated to its own capture object and stop event."""
@@ -169,3 +171,5 @@ class VideoReceiver:
     def get_latest_frame_size(self) -> int:
         with self._lock:
             return len(self._last_frame) if self._last_frame else 0
+        
+    
