@@ -21,6 +21,8 @@ services:
     restart: on-failure:5
     env_file:
       - ./django/.env
+    environment:             
+      - PYTHONUNBUFFERED=1
     ports:
       - "8000:8000"
       - "11111:11111/udp"

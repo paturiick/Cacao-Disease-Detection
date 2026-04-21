@@ -80,10 +80,15 @@ class VideoReceiver:
         """Called by the AI thread to update what we should draw."""
         with self._lock:
             self.current_detections = detections
+            self._ut16_update_time = time.perf_counter()
+            self._ut16_needs_measurement = True
 
     def _run(self, stop_event):
         """Main loop isolated to its own capture object and stop event."""
         video_url = f"udp://0.0.0.0:{self.port}"
+
+        ut12_start_time = time.perf_counter()
+        first_frame_logged = False
         
         # --- THE FIX: Retry loop for OpenCV to wait for the drone ---
         cap = None
@@ -103,11 +108,27 @@ class VideoReceiver:
             
         print("[VIDEO] Successfully connected to drone stream!")
 
+        print(f"[VIDEO] Successfully connected to drone socket. Waiting for first frame...")
+        ut13_frame_count = 0
+        ut13_start_time = time.perf_counter()
+        ut13_report_interval = 5.0  #
+        
         try:
             # Check this specific thread's stop event
             while not stop_event.is_set():
+                
                 success, frame = cap.read()
                 if success:
+                    ut13_frame_count += 1
+                    current_time = time.perf_counter()
+                    elapsed = current_time - ut13_start_time
+                    
+                    if elapsed >= ut13_report_interval:
+                        fps = ut13_frame_count / elapsed
+                        print(f"⏱️ [UT-13] Video Receiver Output: {fps:.2f} FPS (over last {elapsed:.1f}s)")
+                        
+                        ut13_frame_count = 0
+                        ut13_start_time = current_time
                     with self._lock:
                         for det in self.current_detections:
                             try:
@@ -150,3 +171,5 @@ class VideoReceiver:
     def get_latest_frame_size(self) -> int:
         with self._lock:
             return len(self._last_frame) if self._last_frame else 0
+        
+    

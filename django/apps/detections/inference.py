@@ -14,9 +14,9 @@ from drone_controller.instance import get_video_receiver
 from .models import CacaoDetectionLog, DetectedCacao
 from apps.telemetry.models import LiveSystemState 
 
-MODEL_PATH = "/app/models/ver9.pt" 
+MODEL_PATH = "/app/models/ver6.pt" 
 if not os.path.exists(MODEL_PATH):
-    MODEL_PATH = os.path.join(os.getcwd(), "models", "ver9.pt")
+    MODEL_PATH = os.path.join(os.getcwd(), "models", "ver6.pt")
 
 # ==========================================
 # 1. VERIFY GPU AND LOAD MODEL

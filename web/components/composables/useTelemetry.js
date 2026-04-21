@@ -1,4 +1,4 @@
-import { reactive } from 'vue';
+import { reactive, nextTick } from 'vue';
 import { telemetryApi } from '~/sections/api/telemetryApi';
 
 const state = reactive({
@@ -87,14 +87,22 @@ export function useTelemetry() {
       
       eventSource = telemetryApi.connectStream();
 
-      eventSource.onmessage = (event) => {
+      eventSource.onmessage = async (event) => {
+        const receiveTime = performance.now(); 
+
         try {
-          const data = JSON.parse(event.data);
-          updateState(data);
+          const data = JSON.parse(event.data); 
+          updateState(data); 
+          
+          await nextTick(); 
+          
+          const renderTime = performance.now();
+          console.log(`⏱️ UT-09 UI Latency: ${(renderTime - receiveTime).toFixed(2)} ms`);
+
         } catch (err) {
           console.error("SSE Parse Error", err);
         }
-      };
+      };;
 
       eventSource.onerror = (err) => {
         state.connected = false;

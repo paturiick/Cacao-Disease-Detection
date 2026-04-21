@@ -2,6 +2,7 @@
 import json
 import uuid
 from django.utils import timezone
+import traceback
 
 from drone_controller.instance import get_video_receiver, get_telemetry_receiver
 from django.http import JsonResponse
@@ -80,14 +81,24 @@ def clear_steps(request, plan_id):
 @require_http_methods(["POST"])
 def override_command_view(request):
     """Triggered by the Emergency or Stop buttons."""
-    body = json.loads(request.body)
-    cmd = body.get("command")
+    try:
+        body = json.loads(request.body)
+        cmd = body.get("command")
 
-    if cmd in ["stop", "land", "emergency"]:
-        receiver = get_video_receiver()
-        receiver.current_plan_id = None
+        if cmd in ["stop", "land", "emergency"]:
+            receiver = get_video_receiver()
+            if receiver:
+                receiver.current_plan_id = None
 
-    return JsonResponse(services.send_live_override(cmd))
+        result = services.send_live_override(cmd)
+    
+        return JsonResponse(result)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "text": "Invalid JSON payload received."}, status=400)
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({"ok": False, "text": f"Internal Server Error: {str(e)}"}, status=500)
 
 @require_http_methods(["GET"])
 def mission_status_view(request):
