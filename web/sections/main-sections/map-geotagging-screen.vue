@@ -83,7 +83,11 @@ onMounted(() => {
             lat: p.latitude ? p.latitude.toFixed(6) : 'N/A',
             lng: p.longitude ? p.longitude.toFixed(6) : 'N/A',
             recordedDate: captureDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-            recordedTime: captureDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            recordedTime: captureDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+
+            yaw: p.yaw !== undefined ? p.yaw.toFixed(1) : 'N/A',
+            roll: p.roll !== undefined ? p.roll.toFixed(1) : 'N/A',
+            pitch: p.pitch !== undefined ? p.pitch.toFixed(1) : 'N/A'
           };
         });
       }

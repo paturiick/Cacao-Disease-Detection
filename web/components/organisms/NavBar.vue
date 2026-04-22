@@ -28,6 +28,12 @@ const getSignalColor = (type, value) => {
     if (value >= -80) return 'text-amber-500';
     return 'text-red-500';
   }
+  if (type === 'snr') {
+    // 5GHz SNR: >= 40 excellent, 20 to 39 fair, <20 poor
+    if (value >= 40) return 'text-emerald-500';
+    if (value >= 20) return 'text-amber-500';
+    return 'text-red-500';
+  }
   return 'text-gray-400';
 };
 
@@ -43,14 +49,13 @@ const currentDroneStatus = computed(() => {
   return isConnected?.value ? 'Connected' : 'Disconnected';
 });
 
-const iconComponents = { 'plane': IconPlane, 'wifi': IconWifi, 'map': IconMap, 'doc': IconReport , 'profile': IconProfile};
+const iconComponents = { 'plane': IconPlane, 'wifi': IconWifi, 'map': IconMap, 'doc': IconReport};
 
 const pages = {
   'mission-planner': { label: 'Mission Planner', path: '/mission-planner', color: 'bg-[#3E2723]', iconKey: 'plane' },
   'live-monitor': { label: 'Live Monitor', path: '/live-monitor', color: 'bg-[#C60C0C]', iconKey: 'wifi' },
   'map-geotagging': { label: 'Map and Geotagging', path: '/map-geotagging', color: 'bg-[#658D1B]', iconKey: 'map' },
   'report': { label: 'Report', path: '/report', color: 'bg-[#F57F17]', iconKey: 'doc' },
-  'profile': { label: 'Profile', path: '/profile', color: 'bg-[#1E1B4B]',iconKey: 'profile' }
 };
 
 const currentPage = computed(() => {
@@ -150,6 +155,25 @@ const handleMotorToggle = async () => {
     </div>
 
     <div class="flex items-center space-x-3">
+      
+      <div 
+        v-if="isConnected" 
+        class="hidden md:flex flex-col items-end text-[10px] font-mono leading-tight border-r border-gray-200 pr-3 mr-1"
+      >
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400 font-semibold tracking-wider">ESP32 RSSI</span>
+          <span :class="getSignalColor('rssi', telemetryState.esp32_rssi)" class="font-black">
+            {{ telemetryState.esp32_rssi || 0 }}
+          </span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400 font-semibold tracking-wider">DRONE SNR</span>
+          <span :class="getSignalColor('snr', telemetryState.drone_snr)" class="font-black">
+            {{ telemetryState.drone_snr || 0 }}
+          </span>
+        </div>
+      </div>
+
       <span 
         v-if="syncMessage" 
         class="text-[10px] font-bold whitespace-nowrap" 

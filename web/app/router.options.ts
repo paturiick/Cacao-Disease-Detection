@@ -38,6 +38,11 @@ export default <RouterConfig> {
       name: 'report',
       path: '/report',
       component: () => import('~/pages/main-pages/report.vue')
+    },
+    {
+      name: 'profile',
+      path: '/profile',
+      component: () => import('~/pages/main-pages/profile.vue')
     }
   ],
 }
