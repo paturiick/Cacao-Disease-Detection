@@ -291,11 +291,23 @@ const startStatusPoll = () => {
 };
 
 const handleRunMission = async () => {
+  // Safety check to ensure a plan is actually loaded
+  if (!planId.value) return;
+
   isRunning.value = true;
   currentStepIndex.value = -1;
   
+  // 1. Capture the exact battery level from the live telemetry at the moment of the click
+  const startingBattery = telemetryState.battery;
+
   try {
+    // 2. Save the starting battery to the backend BEFORE triggering the flight
+    await missionApi.patchPlan(planId.value, { 
+      battery_start: startingBattery 
+    });
+
     const res = await missionApi.run();
+    
     if (res.ok && res.session_id) {
       activeSessionId.value = res.session_id;
       isStreamActive.value = true; 
@@ -308,6 +320,7 @@ const handleRunMission = async () => {
       isRunning.value = false;
     }
   } catch (e) {
+    console.error("Error running mission:", e);
     isRunning.value = false;
   }
 };
