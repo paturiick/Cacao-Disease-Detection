@@ -96,6 +96,12 @@ const prevTree = () => {
               <div>LNG: {{ currentTree.lng }}</div>
             </div>
 
+            <div class="text-center text-[10px]">
+              <div class="text-white/50 uppercase text-[8px] mb-1">Attitude</div>
+              <div>Y: {{ currentTree.yaw }}&deg;</div>
+              <div>R: {{ currentTree.roll }}&deg; | P: {{ currentTree.pitch }}&deg;</div>
+            </div>
+
             <div class="text-right text-[10px]">
               <div class="text-white/50 uppercase text-[8px] mb-1">Recorded At</div>
               <div>{{ currentTree.recordedDate }}</div>

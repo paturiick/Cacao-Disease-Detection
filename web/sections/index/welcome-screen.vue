@@ -11,7 +11,7 @@ const handleGetStarted = () => {
   
   // Wait for the animation to complete before navigating
   setTimeout(() => {
-    navigateTo('/login');
+    navigateTo('/mission-planner');
   }, 600); // 600ms matches our CSS transition duration
 }
 </script>
@@ -44,7 +44,7 @@ const handleGetStarted = () => {
           <img 
             src="~/assets/icons/Logo.png" 
             alt="Cacao Disease Detection Logo" 
-            class="h-36 md:h-40 w-auto object-contain drop-shadow-2xl transition-all duration-500 group-hover:drop-shadow-[0_20px_25px_rgba(101,141,27,0.25)] group-hover:scale-105"
+            class="h-36 md:h-40 w-auto object-contain drop-shadow-2xl transition-all duration-500 group-hover:drop-shadow-[0_20px_25px_rgba(101,141,27,0.25)] group-hover:scale-50"
           />
         </div>
       </div>
