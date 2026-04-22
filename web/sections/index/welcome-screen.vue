@@ -12,7 +12,7 @@ const handleGetStarted = () => {
   // Wait for the animation to complete before navigating
   setTimeout(() => {
     navigateTo('/login');
-  }, 600); // 600ms matches our CSS transition duration
+  }, 400); // 600ms matches our CSS transition duration
 }
 </script>
 

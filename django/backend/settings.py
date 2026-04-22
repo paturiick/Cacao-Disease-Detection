@@ -60,6 +60,10 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
 
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'apps.users',
+
     "apps.api",
     "apps.core",
     "apps.drone_runtime",
@@ -160,3 +164,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+AUTH_USER_MODEL = 'users.CustomUser'
+
+# Configure DRF to use JWT Authentication by default
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
