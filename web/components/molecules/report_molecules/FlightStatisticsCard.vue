@@ -64,7 +64,7 @@ const isLowBattery = computed(() => {
           </div>
         </div>
         <div class="flex items-baseline gap-1">
-          <span class="text-3xl font-black text-slate-800 tracking-tight">{{ mission.telemetry?.battery_start || 0 }}</span>
+          <span class="text-3xl font-black text-slate-800 tracking-tight">{{ mission.battery_start || mission.telemetry?.battery_start || 0 }}</span>
           <span class="text-lg font-black text-slate-400">%</span>
         </div>
       </div>
