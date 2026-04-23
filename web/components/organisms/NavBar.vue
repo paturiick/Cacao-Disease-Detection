@@ -23,15 +23,8 @@ onUnmounted(() => stopPolling());
 
 const getSignalColor = (type, value) => {
   if (type === 'rssi') {
-    // 2.4GHz RSSI: >-60 excellent, -60 to -80 fair, <-80 poor
     if (value >= -60) return 'text-emerald-500';
     if (value >= -80) return 'text-amber-500';
-    return 'text-red-500';
-  }
-  if (type === 'snr') {
-    // 5GHz SNR: >= 40 excellent, 20 to 39 fair, <20 poor
-    if (value >= 40) return 'text-emerald-500';
-    if (value >= 20) return 'text-amber-500';
     return 'text-red-500';
   }
   return 'text-gray-400';
@@ -164,12 +157,6 @@ const handleMotorToggle = async () => {
           <span class="text-slate-400 font-semibold tracking-wider">ESP32 RSSI</span>
           <span :class="getSignalColor('rssi', telemetryState.esp32_rssi)" class="font-black">
             {{ telemetryState.esp32_rssi || 0 }}
-          </span>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <span class="text-slate-400 font-semibold tracking-wider">DRONE SNR</span>
-          <span :class="getSignalColor('snr', telemetryState.drone_snr)" class="font-black">
-            {{ telemetryState.drone_snr || 0 }}
           </span>
         </div>
       </div>

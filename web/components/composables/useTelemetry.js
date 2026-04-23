@@ -1,4 +1,4 @@
-import { reactive, nextTick } from 'vue';
+import { reactive } from 'vue';
 import { telemetryApi } from '~/sections/api/telemetryApi';
 
 const state = reactive({
@@ -28,8 +28,8 @@ const state = reactive({
   gps_status: 'searching', 
   
   // --- INTERFERENCE TRACKING ---
-  drone_snr: 0,       // New: 5GHz Signal-to-Noise Ratio 
-  esp32_rssi: 0,      // New: 2.4GHz Signal Strength Indicator
+  drone_snr: 0,       // 5GHz Signal-to-Noise Ratio 
+  esp32_rssi: 0,      // 2.4GHz Signal Strength Indicator
   
   heading: 0, 
   speed: 0,   
@@ -87,22 +87,14 @@ export function useTelemetry() {
       
       eventSource = telemetryApi.connectStream();
 
-      eventSource.onmessage = async (event) => {
-        const receiveTime = performance.now(); 
-
+      eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data); 
           updateState(data); 
-          
-          await nextTick(); 
-          
-          const renderTime = performance.now();
-          console.log(`⏱️ UT-09 UI Latency: ${(renderTime - receiveTime).toFixed(2)} ms`);
-
         } catch (err) {
           console.error("SSE Parse Error", err);
         }
-      };;
+      };
 
       eventSource.onerror = (err) => {
         state.connected = false;

@@ -91,21 +91,9 @@ class TelemetryReceiver:
         return out
 
     def _run(self):
-        last_snr_poll = 0
 
         try:
             while not self._stop.is_set():
-                
-                current_time = time.time()
-                if current_time - last_snr_poll > 2.0: # Poll every 2 seconds
-                    try:
-                        self.gps_sock.sendto(b"wifi?", ("192.168.10.1", LOCAL_CMD_PORT))
-                        last_snr_poll = current_time
-                    except Exception:
-                        pass    
-
-
-
                 # Use select to listen to BOTH sockets concurrently with a 1-second timeout
                 read_sockets, _, _ = select.select(self.sockets_list, [], [], 1.0)
 
@@ -143,10 +131,6 @@ class TelemetryReceiver:
                                         self._state["gps_status"] = "searching"
                                 except ValueError:
                                     pass
-
-                            elif msg.isdigit():
-                                self.state["drone_snr"] = int(msg)    
-
                     # ==========================================
                     # PATH B: STANDARD FLIGHT DATA (Port 8890)
                     # ==========================================

@@ -94,6 +94,7 @@ def start_inference_loop():
 
             frame_bytes = receiver.get_latest_frame()
             if not frame_bytes:
+                time.sleep(0.5)
                 continue
 
             current_session = receiver.current_session_id

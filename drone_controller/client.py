@@ -30,6 +30,7 @@ class TelloClient:
 
     def connect(self) -> DroneReply:
         reply = self.send("command")
+ 
         if not reply.ok:
             return reply
         
