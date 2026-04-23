@@ -32,10 +32,14 @@ const mapReadyTrees = computed(() => {
     const jitter = index * 0.000005; 
     return {
       id: tree.tree_id,
-      lat: parseFloat(tree.lat) + jitter,
-      lng: parseFloat(tree.lon) + jitter,
+      lat: parseFloat(tree.lat),
+      lng: parseFloat(tree.lon),
       status: getStatus(tree),
-      image: tree.image || 'https://images.unsplash.com/photo-1597848212624-a19eb35e2656?w=400&q=60'
+      image: tree.image || 'https://images.unsplash.com/photo-1597848212624-a19eb35e2656?w=400&q=60',
+
+      yaw: tree.yaw != null ? Number(tree.yaw).toFixed(1) : 'N/A',
+      roll: tree.roll != null ? Number(tree.roll).toFixed(1) : 'N/A',
+      pitch: tree.pitch != null ? Number(tree.pitch).toFixed(1) : 'N/A'
     };
   });
 });
@@ -111,6 +115,7 @@ const popupContent = `
             <p class="text-[10px] font-mono text-slate-500">Lat: ${tree.lat.toFixed(6)}</p>
             <p class="text-[10px] font-mono text-slate-500">Lng: ${tree.lng.toFixed(6)}</p>
           </div>
+
         </div>
       </div>
     `;  

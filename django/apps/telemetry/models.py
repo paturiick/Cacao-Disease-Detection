@@ -22,6 +22,10 @@ class LiveSystemState(models.Model):
     gps_lat = models.FloatField(null=True, blank=True)
     gps_lon = models.FloatField(null=True, blank=True)
 
+    yaw = models.FloatField(null=True, blank=True)
+    roll = models.FloatField(null=True, blank=True)
+    pitch = models.FloatField(null=True, blank=True)
+
 class TelemetrySnapshot(models.Model):
     recorded_date = models.DateField(auto_now_add=True)
     recorded_time = models.TimeField(auto_now_add=True)

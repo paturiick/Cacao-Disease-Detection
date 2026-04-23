@@ -36,6 +36,7 @@ class VideoReceiver:
                 print("[VIDEO] Recording scheduled to start.")
 
     def stop_recording(self):
+        
         with self._lock:
             self.is_recording = False
             if self.video_writer:
@@ -117,9 +118,32 @@ class VideoReceiver:
                                 x1, y1, x2, y2 = map(int, det['box'])
                                 label = det['label']
                                 color = (0, 0, 255) if "unhealthy" in label.lower() else (0, 255, 0)
+
+                                # Draw bounding box
                                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                                cv2.putText(frame, label, (x1, y1 - 10), 
-                                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+                                # Draw text background like new-code
+                                font = cv2.FONT_HERSHEY_SIMPLEX
+                                font_scale = 0.6
+                                thickness = 2
+
+                                (tw, th), baseline = cv2.getTextSize(label, font, font_scale, thickness)
+                                text_y1 = max(0, y1 - th - baseline - 6)
+                                text_y2 = max(0, y1)
+
+                                cv2.rectangle(frame, (x1, text_y1), (x1 + tw + 6, text_y2), color, -1)
+
+                                # Draw text
+                                cv2.putText(
+                                    frame,
+                                    label,
+                                    (x1 + 3, text_y2 - 5),
+                                    font,
+                                    font_scale,
+                                    (255, 255, 255),   # white text
+                                    thickness,
+                                    cv2.LINE_AA
+                                )
                             except (KeyError, TypeError, ValueError):
                                 continue
 

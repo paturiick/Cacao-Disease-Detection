@@ -72,26 +72,48 @@ onMounted(() => {
   mappingSource = mappingApi.connectCaptureStream(currentSessionId);
   if (mappingSource) {
     mappingSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.pods) {
-        detectedTreesArray.value = data.pods.map(p => {
-          const captureDate = new Date(p.first_seen);
-          return {
-            id: p.track_id,
-            imageUrl: p.image ? `${BASE_URL}/media/${p.image}` : null,
-            status: p.status === 'unhealthy' ? 'diseased' : 'healthy',
-            lat: p.latitude ? p.latitude.toFixed(6) : 'N/A',
-            lng: p.longitude ? p.longitude.toFixed(6) : 'N/A',
-            recordedDate: captureDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-            recordedTime: captureDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+  const data = JSON.parse(event.data);
+  if (data.pods) {
+    detectedTreesArray.value = data.pods.map(p => {
+      // 1. Check if we already have a cached snapshot of this pod in our local array
+      const existingTree = detectedTreesArray.value.find(t => t.id === p.track_id);
+      
+      const captureDate = new Date(p.first_seen || p.recorded_at || Date.now());
+      
+      // 2. Data Hierarchy: 
+      // Use Backend API value -> then cached local snapshot -> finally Live Drone fallback
+      const podLat = p.gps_lat ?? p.latitude ?? existingTree?.rawLat ?? telemetryState.gps_lat;
+      const podLng = p.gps_lon ?? p.longitude ?? existingTree?.rawLng ?? telemetryState.gps_lon;
+      const podYaw = p.yaw ?? existingTree?.rawYaw ?? telemetryState.yaw;
+      const podRoll = p.roll ?? existingTree?.rawRoll ?? telemetryState.roll;
+      const podPitch = p.pitch ?? existingTree?.rawPitch ?? telemetryState.pitch;
 
-            yaw: p.yaw !== undefined ? p.yaw.toFixed(1) : 'N/A',
-            roll: p.roll !== undefined ? p.roll.toFixed(1) : 'N/A',
-            pitch: p.pitch !== undefined ? p.pitch.toFixed(1) : 'N/A'
-          };
-        });
-      }
-    };
+      return {
+        id: p.track_id,
+        imageUrl: p.image ? `${BASE_URL}/media/${p.image}` : null,
+        status: p.status === 'unhealthy' ? 'diseased' : 'healthy',
+        
+        // Save the raw numbers to the object so 'existingTree' can find them in the next pulse
+        rawLat: podLat,
+        rawLng: podLng,
+        rawYaw: podYaw,
+        rawRoll: podRoll,
+        rawPitch: podPitch,
+
+        // Format for UI display
+        lat: podLat != null && podLat !== 0 ? Number(podLat).toFixed(6) : 'N/A',
+        lng: podLng != null && podLng !== 0 ? Number(podLng).toFixed(6) : 'N/A',
+        
+        recordedDate: captureDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+        recordedTime: captureDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+
+        yaw: podYaw != null ? Number(podYaw).toFixed(1) : 'N/A',
+        roll: podRoll != null ? Number(podRoll).toFixed(1) : 'N/A',
+        pitch: podPitch != null ? Number(podPitch).toFixed(1) : 'N/A'
+      };
+    });
+  }
+};
   }
 });
 

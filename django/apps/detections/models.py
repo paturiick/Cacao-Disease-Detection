@@ -23,6 +23,10 @@ class DetectedCacao(models.Model):
     image = models.ImageField(upload_to='detections/', null=True, blank=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
+
+    yaw = models.FloatField(null=True, blank=True)
+    roll = models.FloatField(null=True, blank=True)
+    pitch = models.FloatField(null=True, blank=True)
     
     first_seen = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(auto_now=True)

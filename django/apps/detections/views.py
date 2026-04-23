@@ -27,11 +27,14 @@ def get_detection_stats(request):
 def get_log_data(session_id):
     """
     Synchronous helper to fetch detection data from the database.
-    Used by sync_to_async to prevent blocking the main event loop.
     """
     log = CacaoDetectionLog.objects.filter(session_id=session_id).first()
     if log:
-        pods = list(log.detected_pods.values('track_id', 'status', 'last_seen'))
+        # Add 'latitude', 'longitude', 'yaw', 'roll', and 'pitch' to this list
+        pods = list(log.detected_pods.values(
+            'track_id', 'status', 'last_seen', 'image', 
+            'latitude', 'longitude', 'yaw', 'roll', 'pitch'
+        ))
         return {
             'status': 'success',
             'healthy_count': log.healthy_count,

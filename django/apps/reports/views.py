@@ -42,6 +42,8 @@ def get_mission_report(request, mission_id):
         telemetry_logs = MissionTelemetryLog.objects.filter(session_id=session_id)
         flight_time = telemetry_logs.aggregate(Max('flight_time'))['flight_time__max'] or 0
         max_alt = telemetry_logs.aggregate(Max('altitude_m'))['altitude_m__max'] or 0
+        
+        battery_start = telemetry_logs.aggregate(Max('battery'))['battery__max'] or 0
         battery_end = telemetry_logs.aggregate(Min('battery'))['battery__min'] or 0
     
     # 3. Detections & Map Aggregation
@@ -60,7 +62,13 @@ def get_mission_report(request, mission_id):
                 "lat": float(pod.latitude) if pod.latitude else 8.49918,
                 "lon": float(pod.longitude) if pod.longitude else 124.31046,
                 "accuracy": 95 if pod.status == 'healthy' else 88, 
-                "image": f"{request.scheme}://{request.get_host()}/media/{pod.image}" if pod.image else None
+                "image": f"{request.scheme}://{request.get_host()}/media/{pod.image}" if pod.image else None,
+                
+
+                "yaw": getattr(pod, 'yaw', None),
+                "roll": getattr(pod, 'roll', None),
+                "pitch": getattr(pod, 'pitch', None)
+                
             })
 
     # 4. Flight Sequence
@@ -83,6 +91,7 @@ def get_mission_report(request, mission_id):
         "date": mission.created_at.strftime("%Y-%m-%d"),
         "telemetry": {
             "recorded_at": mission.created_at.strftime("%Y-%m-%d"),
+            "battery_start": battery_start,
             "battery_end": battery_end,
             "max_altitude": float(max_alt),
             "flight_time": flight_time,

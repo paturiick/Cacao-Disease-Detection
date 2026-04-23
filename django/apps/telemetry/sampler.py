@@ -6,7 +6,7 @@ from django.db import close_old_connections
 from django.db.models import Q
 
 from drone_controller.instance import get_drone_client, get_telemetry_receiver
-from .models import TelemetrySnapshot, MissionTelemetryLog
+from .models import TelemetrySnapshot, MissionTelemetryLog, LiveSystemState
 
 _started = False
 _lock = threading.Lock()
@@ -69,6 +69,17 @@ def start_sampler(sample_every_s: float = 1.0):
                     esp32_rssi=_safe_int(t.get("esp32_rssi")),
                     
                     raw=str(t.get("raw", "")),
+                )
+
+                LiveSystemState.objects.update_or_create(
+                    id=1,
+                    defaults={
+                        'gps_lat': _safe_float(t.get("gps_lat")),
+                        'gps_lon': _safe_float(t.get("gps_lon")),
+                        'yaw': _safe_float(t.get("yaw")),
+                        'roll': _safe_float(t.get("roll")),
+                        'pitch': _safe_float(t.get("pitch"))
+                    }
                 )
 
                 # --- 3. Mission Logging (Active Sessions Only) ---

@@ -154,7 +154,7 @@ const handleMotorToggle = async () => {
         class="hidden md:flex flex-col items-end text-[10px] font-mono leading-tight border-r border-gray-200 pr-3 mr-1"
       >
         <div class="flex items-center gap-1.5">
-          <span class="text-slate-400 font-semibold tracking-wider">ESP32 RSSI</span>
+          <span class="text-slate-400 font-semibold tracking-wider">RSSI</span>
           <span :class="getSignalColor('rssi', telemetryState.esp32_rssi)" class="font-black">
             {{ telemetryState.esp32_rssi || 0 }}
           </span>
