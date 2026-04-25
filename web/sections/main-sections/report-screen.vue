@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import DashboardNavBar from '~/components/organisms/NavBar.vue';
 import { useTelemetry } from "~/components/composables/useTelemetry"; 
 import { reportApi } from '~/sections/api/reportApi'; 
@@ -12,6 +12,7 @@ import MissionSummaryCard from '~/components/molecules/report_molecules/MissionS
 const missions = ref([]); 
 const selectedMissionId = ref(null); 
 const activeMissionData = ref(null); 
+const isPrinting = ref(false); // NEW: Reactive print state
 
 const { telemetryState, startPolling, stopPolling } = useTelemetry();
 const signalStatus = computed(() => telemetryState.connected ? 'Online' : 'Offline');
@@ -19,11 +20,20 @@ const signalStatus = computed(() => telemetryState.connected ? 'Online' : 'Offli
 onMounted(() => {
   startPolling();
   fetchMissionList();
+  
+  // Listen for native Ctrl+P / Cmd+P
+  window.addEventListener('beforeprint', handleBeforePrint);
+  window.addEventListener('afterprint', handleAfterPrint);
 });
 
 onUnmounted(() => {
   stopPolling();
+  window.removeEventListener('beforeprint', handleBeforePrint);
+  window.removeEventListener('afterprint', handleAfterPrint);
 });
+
+const handleBeforePrint = () => { isPrinting.value = true; };
+const handleAfterPrint = () => { isPrinting.value = false; };
 
 const fetchMissionList = async () => {
   try {
@@ -89,16 +99,21 @@ const handleBulkDeleteMissions = async (idsToDelete) => {
   }
 };
 
-const handleExportPDF = () => {
+// NEW: Forces Vue to destroy the web layout before opening the print dialog
+const handleExportPDF = async () => {
+  isPrinting.value = true;
+  await nextTick(); // Wait for Vue to physically remove the background image from HTML
   window.print(); 
 };
 </script>
 
 <template>
   <div>
-    <div class="flex flex-col h-screen overflow-hidden font-inter bg-cover bg-center relative print:hidden"
+    <div 
+      v-if="!isPrinting" 
+      class="flex flex-col h-screen overflow-hidden font-inter bg-cover bg-center relative print:hidden"
       style="background-image: url('https://images.unsplash.com/photo-1542319084-2a6c38210350?q=80&w=2574&auto=format&fit=crop');"
-      >
+    >
       <div class="absolute inset-0 bg-black/40 z-0"></div>
       
       <div class="z-20 relative shrink-0">
@@ -139,8 +154,10 @@ const handleExportPDF = () => {
       </div>
     </div>
 
-    <div class="hidden print:block w-full bg-white text-black font-sans text-[11pt]">
-      
+    <div 
+      v-else 
+      class="w-full bg-white text-black font-sans text-[11pt]"
+    >
       <div class="mb-6 pb-2 border-b-2 border-slate-800">
         <h1 class="text-2xl font-bold uppercase tracking-wide">{{ activeMission.name }} - Full Data Report</h1>
         <div class="flex justify-between text-sm mt-2 font-medium">
@@ -229,19 +246,16 @@ const handleExportPDF = () => {
 
 <style>
 @media print {
-  /* Set standard A4 paper size and margin */
   @page {
     size: A4 portrait;
     margin: 15mm;
   }
   
-  body {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+  body, html {
     background-color: #ffffff !important;
+    background-image: none !important;
   }
 
-  /* Ensure page breaks don't chop tables in half */
   table {
     page-break-inside: auto;
   }
